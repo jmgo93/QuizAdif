@@ -1,0 +1,69 @@
+{
+  "questions": [
+    {
+      "enunciado": "En repetición espaciada, ¿cuándo es más eficaz repasar un contenido?",
+      "options": [
+        "Inmediatamente después de estudiarlo, para reforzarlo",
+        "Justo antes de estar a punto de olvidarlo",
+        "Siempre con la misma frecuencia, sin importar el dominio",
+        "Solo la noche anterior al examen"
+      ],
+      "correctIndex": 1,
+      "feedback": "El efecto de espaciado indica que la recuperación cuesta más —y por tanto consolida más— cuando la huella de memoria está debilitada pero aún es recuperable. Repasar de inmediato exige poco esfuerzo y consolida poco.",
+      "category": "Técnicas de estudio",
+      "difficulty": 2,
+      "tags": ["srs", "memoria"]
+    },
+    {
+      "enunciado": "¿Qué describe el 'testing effect' (efecto de examinarse)?",
+      "options": [
+        "Que los exámenes generan ansiedad y empeoran el rendimiento",
+        "Que recuperar activamente la información de memoria la fija mejor que releerla",
+        "Que hacer muchos tests satura la memoria de trabajo",
+        "Que las notas mejoran al repetir el mismo examen"
+      ],
+      "correctIndex": 1,
+      "feedback": "El acto de recuperar (recordar sin mirar) modifica la memoria y la hace más accesible. Releer produce sensación de fluidez pero poco aprendizaje duradero.",
+      "category": "Técnicas de estudio",
+      "difficulty": 1,
+      "tags": ["recuperación activa"]
+    },
+    {
+      "enunciado": "En el formato JSON de esta app, si la respuesta correcta es la tercera opción, ¿qué valor lleva 'correctIndex'?",
+      "options": ["1", "2", "3", "C"],
+      "correctIndex": 1,
+      "feedback": "El índice empieza en 0: la primera opción es 0, la segunda 1 y la tercera 2.",
+      "category": "Uso de la app",
+      "difficulty": 1,
+      "tags": ["json", "formato"]
+    },
+    {
+      "enunciado": "¿Dónde se guardan tus preguntas y tu progreso en QuizMaster Pro?",
+      "options": [
+        "En un servidor de la nube asociado a tu cuenta",
+        "En el almacenamiento local del navegador de tu dispositivo",
+        "En el repositorio de GitHub del proyecto",
+        "En un archivo temporal que se borra al cerrar"
+      ],
+      "correctIndex": 1,
+      "feedback": "Todo se guarda en IndexedDB, dentro de tu navegador. Por eso funciona sin conexión y por eso conviene exportar una copia si quieres llevarlo a otro dispositivo.",
+      "category": "Uso de la app",
+      "difficulty": 2,
+      "tags": ["datos", "privacidad"]
+    },
+    {
+      "enunciado": "Un buen distractor en una pregunta tipo test debe ser...",
+      "options": [
+        "Evidentemente falso, para no confundir al estudiante",
+        "Mucho más corto que la opción correcta",
+        "Plausible y basado en un error conceptual típico",
+        "Del tipo 'ninguna de las anteriores'"
+      ],
+      "correctIndex": 2,
+      "feedback": "Un distractor útil discrimina entre quien comprende y quien no. Las opciones absurdas o de longitud desigual permiten acertar por descarte sin saber la materia.",
+      "category": "Diseño de preguntas",
+      "difficulty": 2,
+      "tags": ["distractores"]
+    }
+  ]
+}

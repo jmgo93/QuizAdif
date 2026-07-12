@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#312e81">
+<meta name="description" content="QuizMaster Pro — Estudia con tests, repetición espaciada y estadísticas. Funciona offline.">
+<title>QuizMaster Pro</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { colors: { brand: { 50:'#eef2ff',100:'#e0e7ff',500:'#6366f1',600:'#4f46e5',700:'#4338ca',900:'#312e81' } } } } };
+</script>
+<style>
+  :root { --safe-b: env(safe-area-inset-bottom, 0px); }
+  html,body{ -webkit-tap-highlight-color: transparent; overscroll-behavior-y: contain; }
+  .fade-in{ animation: fadeIn .25s ease-out; }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none} }
+  .pop{ animation: pop .18s ease-out; }
+  @keyframes pop{ from{transform:scale(.97)} to{transform:scale(1)} }
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+  [hidden]{display:none !important}
+  .tab-active{ color:#4f46e5; }
+  .tab-active svg{ stroke:#4f46e5 }
+  textarea,input,select{ font-size:16px } /* evita zoom iOS */
+  @media (min-width:768px){ textarea,input,select{font-size:inherit} }
+</style>
+</head>
+<body class="h-full bg-slate-50 text-slate-800 flex flex-col antialiased">
+
+<header class="bg-brand-900 text-white sticky top-0 z-30 shadow-lg">
+  <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+    <button data-nav="home" class="font-extrabold tracking-tight flex items-center gap-2 text-lg">
+      <svg class="w-6 h-6 text-indigo-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.25v13M12 6.25A6.5 6.5 0 003 6.25v13a6.5 6.5 0 019 0 6.5 6.5 0 019 0v-13a6.5 6.5 0 00-9 0z"/></svg>
+      QuizMaster<span class="text-indigo-300">Pro</span>
+    </button>
+    <div class="flex items-center gap-2">
+      <button id="btnInstall" hidden class="text-xs font-bold bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg">⤓ Instalar</button>
+      <span id="syncDot" class="text-[10px] text-indigo-300 font-semibold"></span>
+    </div>
+  </div>
+  <nav class="hidden md:block border-t border-white/10">
+    <div class="max-w-6xl mx-auto px-4 flex gap-1 text-sm font-semibold">
+      <button data-nav="home" class="px-3 py-2.5 hover:bg-white/10 rounded-t">Inicio</button>
+      <button data-nav="study" class="px-3 py-2.5 hover:bg-white/10 rounded-t">Estudiar</button>
+      <button data-nav="bank" class="px-3 py-2.5 hover:bg-white/10 rounded-t">Banco</button>
+      <button data-nav="stats" class="px-3 py-2.5 hover:bg-white/10 rounded-t">Progreso</button>
+      <button data-nav="prompt" class="px-3 py-2.5 hover:bg-white/10 rounded-t">Generador IA</button>
+      <button data-nav="help" class="px-3 py-2.5 hover:bg-white/10 rounded-t">Ayuda</button>
+    </div>
+  </nav>
+</header>
+
+<main id="app" class="flex-1 w-full max-w-6xl mx-auto px-4 py-6 pb-28 md:pb-10"></main>
+
+<!-- Bottom nav (móvil) -->
+<nav class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-slate-200 shadow-[0_-2px_10px_rgba(0,0,0,.05)]"
+     style="padding-bottom:var(--safe-b)">
+  <div class="grid grid-cols-5 text-[10px] font-bold text-slate-500">
+    <button data-nav="home"  class="py-2.5 flex flex-col items-center gap-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2z"/></svg>Inicio</button>
+    <button data-nav="study" class="py-2.5 flex flex-col items-center gap-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Estudiar</button>
+    <button data-nav="bank"  class="py-2.5 flex flex-col items-center gap-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 7c0-2.2 3.6-4 8-4s8 1.8 8 4v10c0 2.2-3.6 4-8 4s-8-1.8-8-4z"/></svg>Banco</button>
+    <button data-nav="stats" class="py-2.5 flex flex-col items-center gap-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19V9m6 10V5m6 14v-7"/></svg>Progreso</button>
+    <button data-nav="prompt" class="py-2.5 flex flex-col items-center gap-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6l2.1 2.1m0-12.8l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>IA</button>
+  </div>
+</nav>
+
+<div id="toast" class="fixed z-50 left-1/2 -translate-x-1/2 bottom-24 md:bottom-8 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-xl transition-all opacity-0 translate-y-4 pointer-events-none"></div>
+
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>
