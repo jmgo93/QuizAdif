@@ -531,38 +531,38 @@ export async function stats(root) {
   const byType = Object.entries(attempts.reduce((acc,a)=>{const t=a.questionType||qById.get(a.questionId)?.questionType||'Sin clasificar';const x=(acc[t]??={total:0,correct:0});x.total++;if(a.correct)x.correct++;return acc;},{})).sort((a,b)=>(a[1].correct/a[1].total)-(b[1].correct/b[1].total));
   const rateColor = rate => rate === null ? 'slate' : rate >= 80 ? 'emerald' : rate >= 60 ? 'amber' : 'rose';
   const rateText = rate => rate === null ? 'text-slate-400' : rate >= 80 ? 'text-emerald-700' : rate >= 60 ? 'text-amber-700' : 'text-rose-600';
-  const topicAccordions = scope => {
-    const grouped = new Map();
-    cats.filter(([,c]) => c.scope === scope).forEach(row => {
-      const topic = row[1].topic;
-      if (!grouped.has(topic)) grouped.set(topic, []);
-      grouped.get(topic).push(row);
-    });
-    return [...grouped.entries()].sort(([a],[b]) => a.localeCompare(b, 'es')).map(([topic, rows]) => {
-      const [icon, bg, border] = topicVisual(topic);
-      const summary = rows.reduce((acc, [,c]) => ({
-        total: acc.total + c.total, seen: acc.seen + c.seen,
-        correct: acc.correct + c.correct, incorrect: acc.incorrect + c.incorrect,
-      }), { total:0, seen:0, correct:0, incorrect:0 });
-      const topicRate = summary.seen ? Math.round(100 * summary.correct / summary.seen) : null;
-      return `<details data-topic-progress class="group rounded-2xl overflow-hidden shadow-sm" style="background:${bg};border:1px solid ${border}">
-        <summary class="list-none cursor-pointer select-none p-3 md:p-4 flex items-center gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-inset">
-          <span class="text-2xl shrink-0" aria-hidden="true">${icon}</span>
-          <span class="flex-1 min-w-0"><span class="block font-extrabold text-sm md:text-base text-slate-800">${esc(topic)}</span><span class="block text-[10px] md:text-xs font-semibold text-slate-500 mt-0.5">${rows.length} subsecciones · ${summary.total} preguntas · ${summary.seen} ${summary.seen === 1 ? 'respuesta' : 'respuestas'}</span></span>
-          <span class="text-right shrink-0"><span class="block font-black tabular-nums ${rateText(topicRate)}">${topicRate === null ? '—' : topicRate + '%'}</span><span class="block text-[10px] text-slate-500">global</span></span>
-          <span class="text-slate-500 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span>
-        </summary>
-        <div class="px-3 pb-3 md:px-4 md:pb-4">
-          ${bar(topicRate ?? 0, rateColor(topicRate))}
-          <div class="mt-3 rounded-xl bg-white/75 border border-white overflow-hidden">
-            ${rows.sort(([,a],[,b]) => a.category.localeCompare(b.category, 'es')).map(([,c]) => `<div class="p-3 border-b border-slate-200/70 last:border-0">
-              <div class="flex justify-between gap-3 text-xs font-bold mb-1.5"><span class="text-slate-700">${categoryIcon(c.category)} ${esc(c.category)}</span><span class="tabular-nums shrink-0 ${rateText(c.rate)}">${c.rate === null ? 'sin datos' : c.rate + '%'} · ${c.total} preg.</span></div>
-              ${bar(c.rate ?? 0, rateColor(c.rate))}
-            </div>`).join('')}
-          </div>
+  const topicGroups = new Map();
+  cats.forEach(row => {
+    const topic = row[1].topic;
+    if (!topicGroups.has(topic)) topicGroups.set(topic, []);
+    topicGroups.get(topic).push(row);
+  });
+  const topicsForScope = scope => [...topicGroups.entries()].filter(([,rows]) => rows[0][1].scope === scope).map(([topic]) => topic).sort((a,b) => a.localeCompare(b, 'es'));
+  const progressPrefs = await db.getMeta('progressPrefs', { scope:'general', topic:'' });
+  let progressScope = ['general','specific'].includes(progressPrefs.scope) ? progressPrefs.scope : 'general';
+  let progressTopics = topicsForScope(progressScope);
+  let progressTopic = progressTopics.includes(progressPrefs.topic) ? progressPrefs.topic : progressTopics[0];
+  const topicPanel = topic => {
+    const rows = [...(topicGroups.get(topic) || [])].sort(([,a],[,b]) => a.category.localeCompare(b.category, 'es'));
+    if (!rows.length) return '';
+    const [icon, bg, border] = topicVisual(topic);
+    const summary = rows.reduce((acc, [,c]) => ({ total:acc.total+c.total, seen:acc.seen+c.seen, correct:acc.correct+c.correct }), { total:0, seen:0, correct:0 });
+    const topicRate = summary.seen ? Math.round(100 * summary.correct / summary.seen) : null;
+    return `<details data-topic-progress class="group rounded-2xl overflow-hidden shadow-sm" style="background:${bg};border:1px solid ${border}">
+      <summary class="list-none cursor-pointer select-none p-4 flex items-center gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-inset">
+        <span class="text-3xl shrink-0" aria-hidden="true">${icon}</span>
+        <span class="flex-1 min-w-0"><span class="block font-extrabold text-slate-800">${esc(topic)}</span><span class="block text-xs font-semibold text-slate-500 mt-0.5">${rows.length} subtemas · ${summary.total} preguntas · ${summary.seen} ${summary.seen === 1 ? 'respuesta' : 'respuestas'}</span></span>
+        <span class="text-right shrink-0"><span class="block font-black tabular-nums ${rateText(topicRate)}">${topicRate === null ? '—' : topicRate + '%'}</span><span class="block text-[10px] text-slate-500">global</span></span>
+        <span class="text-slate-500 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span>
+      </summary>
+      <div class="px-4 pb-4">
+        ${bar(topicRate ?? 0, rateColor(topicRate))}
+        <h5 class="font-extrabold text-xs uppercase tracking-wide text-slate-600 mt-4 mb-2">Subtemas</h5>
+        <div class="rounded-xl bg-white/75 border border-white overflow-hidden">
+          ${rows.map(([,c]) => `<div class="p-3 border-b border-slate-200/70 last:border-0"><div class="flex justify-between gap-3 text-xs font-bold mb-1.5"><span class="text-slate-700">${categoryIcon(c.category)} ${esc(c.category)}</span><span class="tabular-nums shrink-0 ${rateText(c.rate)}">${c.rate === null ? 'sin datos' : c.rate + '%'} · ${c.total} preg.</span></div>${bar(c.rate ?? 0, rateColor(c.rate))}</div>`).join('')}
         </div>
-      </details>`;
-    }).join('');
+      </div>
+    </details>`;
   };
 
   root.innerHTML = `
@@ -592,9 +592,12 @@ export async function stats(root) {
         <p class="text-sm text-amber-800">Tu punto más flojo es <b>${esc(worst[0][1].topic)} · ${esc(worst[0][1].category)}</b> (${worst[0][1].rate}% de acierto).</p>
       </div>` : ''}
 
-      ${card(`<h3 class="font-extrabold mb-1">Progreso por tema</h3><p class="text-xs text-slate-500 mb-4">Pulsa un tema para consultar sus subsecciones. Solo se mantiene uno desplegado cada vez.</p>
-        <section class="rounded-2xl bg-blue-50/60 border border-blue-200 p-3 md:p-4 mb-4"><h4 class="font-extrabold text-blue-900 mb-3">📘 Bloque General</h4><div class="space-y-2">${topicAccordions('general')}</div></section>
-        <section class="rounded-2xl bg-emerald-50/60 border border-emerald-200 p-3 md:p-4"><h4 class="font-extrabold text-emerald-900 mb-3">🛠️ Bloque Específico</h4><div class="space-y-2">${topicAccordions('specific')}</div></section>`)}
+      ${card(`<h3 class="font-extrabold mb-1">Progreso por tema</h3><p class="text-xs text-slate-500 mb-4">Selecciona un tema y amplíalo para consultar el progreso de sus subtemas.</p>
+        <div class="grid md:grid-cols-2 gap-3 mb-4">
+          <label class="text-xs font-bold text-slate-600">Bloque<select id="progressScope" class="block w-full mt-1.5 border-2 border-slate-200 rounded-xl px-3 py-2.5 bg-white font-semibold"><option value="general" ${progressScope==='general'?'selected':''}>📘 General</option><option value="specific" ${progressScope==='specific'?'selected':''}>🛠️ Específico</option></select></label>
+          <label class="text-xs font-bold text-slate-600">Tema<select id="progressTopic" class="block w-full mt-1.5 border-2 border-slate-200 rounded-xl px-3 py-2.5 bg-white font-semibold">${progressTopics.map(topic => `<option value="${esc(topic)}" ${topic===progressTopic?'selected':''}>${topicVisual(topic)[0]} ${esc(topic)}</option>`).join('')}</select></label>
+        </div>
+        <div id="progressTopicPanel">${topicPanel(progressTopic)}</div>`)}
 
       ${card(`
         <h3 class="font-extrabold mb-4">Estado de tus preguntas</h3>
@@ -603,10 +606,20 @@ export async function stats(root) {
       ${byType.length?card(`<h3 class="font-extrabold mb-4">Rendimiento por tipo de pregunta</h3><div class="space-y-3">${byType.map(([name,x])=>{const r=Math.round(100*x.correct/x.total);return `<div><div class="flex justify-between text-xs font-bold mb-1"><span>${esc(name)}</span><span>${r}% · ${x.total}</span></div>${bar(r,r>=80?'emerald':r>=60?'amber':'rose')}</div>`;}).join('')}</div>`):''}
       ${exams.length?card(`<h3 class="font-extrabold mb-1">Últimos simulacros</h3><p class="text-xs text-slate-500 mb-4">Puntuación: aciertos − fallos/3. Las respuestas en blanco no penalizan.</p><div class="space-y-2">${exams.map(x=>{const incorrect=x.incorrect??Math.max(0,(x.answered??x.total)-x.correct);const grade=x.grade??Math.max(0,(x.correct-incorrect/3)*10/x.total);return `<div class="flex justify-between border-b pb-2 text-sm"><span>${new Date(x.at).toLocaleDateString('es')} · ${x.examType||'simulacro'}</span><b>${grade.toFixed(2)}/10 · ${x.correct}✓ ${incorrect}✕</b></div>`;}).join('')}</div>`):''}
     </div>`;
-  const topicDetails = [...root.querySelectorAll('[data-topic-progress]')];
-  topicDetails.forEach(detail => detail.addEventListener('toggle', () => {
-    if (detail.open) topicDetails.forEach(other => { if (other !== detail) other.open = false; });
-  }));
+  const progressScopeEl = root.querySelector('#progressScope');
+  const progressTopicEl = root.querySelector('#progressTopic');
+  const progressPanelEl = root.querySelector('#progressTopicPanel');
+  const saveProgressPrefs = () => db.setMeta('progressPrefs', { scope:progressScope, topic:progressTopic });
+  const renderProgressTopic = () => { progressPanelEl.innerHTML = topicPanel(progressTopic); saveProgressPrefs(); };
+  progressScopeEl.onchange = () => {
+    progressScope = progressScopeEl.value;
+    progressTopics = topicsForScope(progressScope);
+    progressTopic = progressTopics[0];
+    progressTopicEl.innerHTML = progressTopics.map(topic => `<option value="${esc(topic)}">${topicVisual(topic)[0]} ${esc(topic)}</option>`).join('');
+    progressTopicEl.value = progressTopic;
+    renderProgressTopic();
+  };
+  progressTopicEl.onchange = () => { progressTopic = progressTopicEl.value; renderProgressTopic(); };
 }
 
 // ---------------------------------------------------------------- PROMPT GENERATOR
