@@ -202,6 +202,8 @@ export async function bank(root, ctx) {
   const qs = await db.getAll('questions');
   const cats = [...new Set(qs.map(q => q.category))].sort();
   let filter = { text: '', category: 'ALL', state: 'ALL' };
+  const PAGE_SIZE = 40;
+  let visibleCount = PAGE_SIZE;
 
   root.innerHTML = `
     <div class="fade-in space-y-4">
@@ -237,6 +239,7 @@ export async function bank(root, ctx) {
           <option value="ALL">Cualquier estado</option><option value="new">Nuevas</option><option value="learning">Aprendiendo</option><option value="weak">Débiles</option><option value="mastered">Dominadas</option><option value="due">Toca repasar</option>
         </select>
       </div>
+      <div id="bankCount" class="text-xs font-semibold text-slate-500" aria-live="polite"></div>
       <div id="list" class="space-y-2"></div>` : empty('El banco está vacío', 'Importa un JSON, créalas a mano o genera un prompt para que una IA te las escriba.', btn('🤖 Ir al generador de prompts', 'data-nav="prompt"', 'ghost'))}
     </div>`;
 
@@ -295,8 +298,10 @@ export async function bank(root, ctx) {
       return true;
     });
     const list = $('#list');
+    $('#bankCount').textContent = f.length ? `Mostrando ${Math.min(visibleCount, f.length)} de ${f.length} resultados` : 'Sin resultados';
     if (!f.length) { list.innerHTML = `<p class="text-center text-slate-400 text-sm py-10 font-semibold">Sin resultados.</p>`; return; }
-    list.innerHTML = f.map(q => {
+    const page = f.slice(0, visibleCount);
+    list.innerHTML = page.map(q => {
       const m = mastery(q);
       const rate = q.hist.seen ? Math.round(100 * q.hist.correct / q.hist.seen) : null;
       return `
@@ -305,6 +310,7 @@ export async function bank(root, ctx) {
           <p class="font-bold text-sm leading-snug line-clamp-2">${esc(q.enunciado)}</p>
           <div class="flex flex-wrap gap-1.5 mt-2 text-[10px] font-bold">
             <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">${esc(q.category)}</span>
+            <span class="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">${esc(q.questionType || 'Test')}</span>
             <span class="px-2 py-0.5 rounded-full bg-${m.color}-100 text-${m.color}-700">${m.label}</span>
             ${rate !== null ? `<span class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500">${rate}% · ${q.hist.seen} intentos</span>` : ''}
             <span class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-400">Repaso ${relTime(q.srs.dueAt)}</span>
@@ -315,7 +321,7 @@ export async function bank(root, ctx) {
           <button data-del="${q.id}" class="w-8 h-8 rounded-lg hover:bg-rose-50 text-rose-500 grid place-items-center" title="Eliminar">🗑</button>
         </div>
       </div>`;
-    }).join('');
+    }).join('') + (visibleCount < f.length ? `<div class="pt-3 text-center"><button data-more class="bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl px-6 py-3">Cargar ${Math.min(PAGE_SIZE, f.length-visibleCount)} más</button></div>` : '');
 
     list.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editor(root, ctx, qs.find(q => q.id === b.dataset.edit), false));
     list.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
@@ -323,11 +329,12 @@ export async function bank(root, ctx) {
         await db.del('questions', b.dataset.del); toast('Pregunta eliminada'); ctx.go('bank');
       }
     });
+    list.querySelector('[data-more]')?.addEventListener('click', () => { visibleCount += PAGE_SIZE; renderList(); });
   };
 
-  $('#q').oninput = e => { filter.text = e.target.value.toLowerCase(); renderList(); };
-  $('#fcat').onchange = e => { filter.category = e.target.value; renderList(); };
-  $('#fst').onchange = e => { filter.state = e.target.value; renderList(); };
+  $('#q').oninput = e => { filter.text = e.target.value.toLowerCase(); visibleCount = PAGE_SIZE; renderList(); };
+  $('#fcat').onchange = e => { filter.category = e.target.value; visibleCount = PAGE_SIZE; renderList(); };
+  $('#fst').onchange = e => { filter.state = e.target.value; visibleCount = PAGE_SIZE; renderList(); };
   renderList();
 }
 

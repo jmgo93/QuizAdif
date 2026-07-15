@@ -1,9 +1,9 @@
 // Service worker: app-shell offline. Sube CACHE al desplegar cambios.
-const CACHE = 'quizadif-v5';
+const CACHE = 'quizadif-v16';
 const SHELL = [
   './', './index.html', './manifest.webmanifest',
   './js/app.js', './js/db.js', './js/model.js', './js/quiz.js', './js/ui.js', './js/views.js',
-  './bank/questions.json', './vendor/tailwindcss.js',
+  './bank/questions.json', './bank/editorial-expansion.json', './bank/editorial-code-ethics.json', './bank/editorial-drc.json', './bank/editorial-equality.json', './bank/editorial-pe2030.json', './bank/editorial-risks.json', './bank/editorial-earthworks.json', './bank/editorial-cab.json', './bank/editorial-turnouts.json', './bank/editorial-construction-safety.json', './bank/editorial-railway-works.json', './bank/editorial-maintenance.json', './bank/editorial-designation.json', './bank/editorial-compatible-works.json', './vendor/tailwindcss.js',
   './icons/favicon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
 ];
 

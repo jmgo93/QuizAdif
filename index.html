@@ -25,6 +25,7 @@ tailwind.config = { theme: { extend: { colors: { brand: { 50:'#eef2ff',100:'#e0e
   ::-webkit-scrollbar{width:8px;height:8px}
   ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
   [hidden]{display:none !important}
+  dialog::backdrop{background:rgba(15,23,42,.65);backdrop-filter:blur(3px)}
   .tab-active{ color:#4f46e5; }
   .tab-active svg{ stroke:#4f46e5 }
   textarea,input,select{ font-size:16px } /* evita zoom iOS */
@@ -40,6 +41,7 @@ tailwind.config = { theme: { extend: { colors: { brand: { 50:'#eef2ff',100:'#e0e
       Quiz<span class="text-indigo-300">Adif</span>
     </button>
     <div class="flex items-center gap-2">
+      <button id="btnFontSize" class="text-xs font-bold bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg min-w-[64px]" title="Cambiar tamaño de letra" aria-label="Cambiar tamaño de letra">A 100%</button>
       <button id="btnInstall" hidden class="text-xs font-bold bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-lg">⤓ Instalar</button>
       <span id="syncDot" class="text-[10px] text-indigo-300 font-semibold"></span>
     </div>
@@ -58,6 +60,11 @@ tailwind.config = { theme: { extend: { colors: { brand: { 50:'#eef2ff',100:'#e0e
 
 <main id="app" class="flex-1 w-full max-w-6xl mx-auto px-4 py-6 pb-28 md:pb-10"></main>
 
+<footer class="border-t border-slate-200 bg-white text-slate-500 text-center px-4 py-3 mb-16 md:mb-0">
+  <p class="hidden md:block text-xs">© 2026 · Creado por <b>Juan María Gámez Ortiz</b> · Uso permitido con atribución · <button data-legal class="text-brand-600 font-bold hover:underline">Descargo y bibliografía</button></p>
+  <button data-legal class="md:hidden text-[10px] font-semibold text-slate-400">© 2026 Juan María Gámez Ortiz · Aviso legal</button>
+</footer>
+
 <!-- Bottom nav (móvil) -->
 <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-slate-200 shadow-[0_-2px_10px_rgba(0,0,0,.05)]"
      style="padding-bottom:var(--safe-b)">
@@ -71,6 +78,36 @@ tailwind.config = { theme: { extend: { colors: { brand: { 50:'#eef2ff',100:'#e0e
 </nav>
 
 <div id="toast" class="fixed z-50 left-1/2 -translate-x-1/2 bottom-24 md:bottom-8 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-xl transition-all opacity-0 translate-y-4 pointer-events-none"></div>
+
+<dialog id="legalDialog" class="w-[calc(100%-2rem)] max-w-2xl rounded-2xl p-0 shadow-2xl text-slate-800">
+  <div class="p-5 md:p-7 max-h-[85vh] overflow-y-auto">
+    <div class="flex justify-between gap-3 items-start mb-4">
+      <div><h2 class="text-xl font-extrabold">Descargo de responsabilidad</h2><p class="text-xs text-slate-500 mt-1">QuizAdif · Herramienta independiente de estudio</p></div>
+      <button data-legal-close class="w-9 h-9 rounded-lg bg-slate-100" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="space-y-4 text-sm leading-relaxed">
+      <p>Esta aplicación es una <b>herramienta de ayuda y estudio</b>. No es una publicación oficial de Adif, no está afiliada ni respaldada por Adif y no sustituye las bases de una convocatoria, la normativa vigente, la formación oficial ni los documentos originales.</p>
+      <p>Las preguntas y explicaciones pueden contener errores de interpretación, transcripción o actualización. Ante cualquier discrepancia prevalecen siempre la convocatoria, la legislación y la documentación oficial vigente. El usuario debe contrastar el contenido antes de tomar decisiones profesionales o presentarse a un examen.</p>
+      <p>© 2026 Juan María Gámez Ortiz. Se permite el uso y la redistribución con atribución visible al autor, sin atribuir carácter oficial a la aplicación.</p>
+      <div><h3 class="font-extrabold mb-2">Bibliografía utilizada</h3><ul class="list-disc pl-5 space-y-1 text-xs text-slate-600">
+        <li>Código Ético y de Conducta de Adif y documentación de su modelo de gestión.</li>
+        <li>Declaración sobre la Red 2025, apartados DRC 1 y 2.</li>
+        <li>II Plan de Igualdad de Adif, excepto el punto 5.</li>
+        <li>Plan Estratégico 2030 de Adif y Adif AV, apartados 1 a 8.</li>
+        <li>P.O.P. 02, Información y Gestión de Riesgos.</li>
+        <li>ADIF-IT-301-001-VIA-22, Inspección Básica de Obras de Tierra de Ferrocarril.</li>
+        <li>ADIF-IT-301-001-VIA-26, Inspección y vigilancia de vía en cabina.</li>
+        <li>ADIF-IT-301-001-VIA-28, Inspección y vigilancia de aparatos de vía.</li>
+        <li>Real Decreto 1627/1997, disposiciones mínimas de seguridad y salud en obras de construcción.</li>
+        <li>Reglamento de Circulación Ferroviaria, Libro 3, capítulo 3.</li>
+        <li>MIN-PE-IV-002, Sustitución y tratamiento de materiales.</li>
+        <li>NAG 2-0-1.0_1E, Designación de vías y componentes de la superestructura.</li>
+        <li>NAR 6/16, Trabajos compatibles con la circulación de trenes y actividades de regulación específica.</li>
+      </ul></div>
+    </div>
+    <button data-legal-accept class="mt-6 w-full bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl px-4 py-3">Entendido</button>
+  </div>
+</dialog>
 
 <script type="module" src="./js/app.js"></script>
 </body>
