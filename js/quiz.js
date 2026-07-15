@@ -1,19 +1,29 @@
 // Motor de sesión de estudio: práctica, examen y repaso SRS.
 import * as db from './db.js';
-import { applyResult, shuffle, isDue, mastery } from './model.js';
+import { applyResult, shuffle, isDue, mastery, stratifiedSample } from './model.js';
 import { h, esc, btn, toast, card, confirmDialog } from './ui.js';
 
 const LETTERS = 'ABCDEFGH';
 
 /** @typedef {{mode:'practice'|'exam'|'review', queue:object[], i:number, answered:boolean, correct:number, startedAt:number, log:object[], selected:number|null, shuffledOpts:number[]}} Session */
 
-export function buildQueue(questions, { mode, category, limit, onlyWeak, shuffleQ = true }) {
+export function buildQueue(questions, { mode, scope = 'all', topic = 'ALL', category = 'ALL', limit, onlyWeak, state = 'all', examType, shuffleQ = true }) {
   let pool = questions;
+  if (examType) {
+    const general = stratifiedSample(pool.filter(q => q.scope === 'general'), examType === 'general' ? 10 : 10);
+    const specific = stratifiedSample(pool.filter(q => q.scope === 'specific'), examType === 'specific' ? 20 : 20);
+    return examType === 'general' ? general.slice(0, 10) : examType === 'specific' ? specific.slice(0, 20) : shuffle([...general.slice(0, 10), ...specific.slice(0, 20)]);
+  }
+  if (scope !== 'all') pool = pool.filter(q => q.scope === scope);
+  if (topic && topic !== 'ALL') pool = pool.filter(q => q.topic === topic);
   if (category && category !== 'ALL') pool = pool.filter(q => q.category === category);
   if (mode === 'review') pool = pool.filter(q => isDue(q));
   if (onlyWeak) pool = pool.filter(q => mastery(q).key === 'weak');
+  if (state === 'new') pool = pool.filter(q => !q.hist?.seen);
+  if (state === 'mistakes') pool = pool.filter(q => (q.mistakeDebt ?? 0) > 0);
+  if (state === 'bookmarked') pool = pool.filter(q => q.bookmarked);
   if (mode === 'review') pool = [...pool].sort((a, b) => a.srs.dueAt - b.srs.dueAt);
-  else if (shuffleQ) pool = shuffle(pool);
+  else if (shuffleQ) pool = stratifiedSample(pool, limit || pool.length);
   return limit ? pool.slice(0, limit) : pool;
 }
 
@@ -44,6 +54,7 @@ export function startSession(root, queue, opts, onDone) {
     const order = s.shuffleOptions ? shuffle(q.options.map((_, i) => i)) : q.options.map((_, i) => i);
     s.shuffledOpts = order;
     s.answered = false; s.selected = null;
+    s.questionStartedAt = Date.now();
 
     const pct = Math.round((s.i / s.queue.length) * 100);
     const m = mastery(q);
@@ -54,9 +65,10 @@ export function startSession(root, queue, opts, onDone) {
           <div class="flex items-center justify-between text-xs font-bold text-slate-500 mb-2">
             <span>${s.i + 1} / ${s.queue.length}</span>
             <span class="flex gap-2">
-              <span class="px-2 py-0.5 rounded-full bg-brand-100 text-brand-700">${esc(q.category)}</span>
+              <span class="px-2 py-0.5 rounded-full bg-brand-100 text-brand-700">${q.scope === 'specific' ? 'Específico' : 'General'} · ${esc(q.category)}</span>
               <span class="px-2 py-0.5 rounded-full bg-${m.color}-100 text-${m.color}-700">${m.label}</span>
               <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">${modeLabel(s.mode)}</span>
+              <button data-bookmark class="px-2 py-0.5 rounded-full bg-amber-50" title="Marcar para repasar">${q.bookmarked?'🔖':'☆'}</button>
             </span>
           </div>
           <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden">
@@ -76,6 +88,7 @@ export function startSession(root, queue, opts, onDone) {
       </div>`;
 
     const opts = root.querySelector('#opts');
+    root.querySelector('[data-bookmark]').onclick = async e => { q.bookmarked=!q.bookmarked; await db.put('questions',q); e.currentTarget.textContent=q.bookmarked?'🔖':'☆'; };
     order.forEach((origIdx, pos) => {
       const b = h(`
         <button data-i="${origIdx}" class="text-left w-full border-2 border-slate-200 bg-white rounded-xl px-4 py-3.5 flex items-start gap-3 hover:border-brand-500 hover:bg-brand-50 transition active:scale-[.99] group">
@@ -125,6 +138,7 @@ export function startSession(root, queue, opts, onDone) {
         </div>
         ${!ok ? `<p class="text-sm font-semibold text-rose-900 mb-2">Respuesta correcta: <b>${esc(q.options[q.correctIndex])}</b></p>` : ''}
         ${q.feedback ? `<p class="text-sm leading-relaxed ${ok ? 'text-emerald-900' : 'text-rose-900'}">${esc(q.feedback)}</p>` : '<p class="text-sm italic text-slate-500">Esta pregunta no tiene explicación.</p>'}
+        ${q.documentId ? `<p class="text-xs mt-3 opacity-75"><b>Fuente:</b> ${esc(q.documentId)}${q.section ? ` · § ${esc(q.section)}` : ''}${q.page ? ` · pág. ${q.page}` : ''}</p>` : ''}
       </div>
       ${ok ? `
       <div class="mt-4">
@@ -151,8 +165,9 @@ export function startSession(root, queue, opts, onDone) {
     const updated = applyResult(q, ok, grade);
     s.queue[s.i] = updated;
     await db.put('questions', updated);
-    await db.put('attempts', { questionId: q.id, category: q.category, correct: ok, grade, at: Date.now(), mode: s.mode });
-    s.log.push({ questionId: q.id, correct: ok });
+    await db.put('attempts', { questionId: q.id, scope:q.scope, topic:q.topic, category: q.category, selectedIndex:s.selected,
+      correctIndex:q.correctIndex, correct: ok, grade, at: Date.now(), elapsedMs:Date.now()-s.questionStartedAt, mode: s.mode });
+    s.log.push({ questionId: q.id, correct: ok, selectedIndex:s.selected, correctIndex:q.correctIndex });
   }
 
   function renderAdvance() {
@@ -178,12 +193,66 @@ export function startSession(root, queue, opts, onDone) {
   }
 }
 
+export function startExamSession(root, queue, opts, onDone) {
+  const startedAt = Date.now();
+  const answers = Array(queue.length).fill(null);
+  const marked = new Set();
+  const optionOrders = queue.map(q => shuffle(q.options.map((_, i) => i)));
+  let i = 0, timer;
+  render();
+  timer = setInterval(updateTimer, 1000);
+
+  function render() {
+    const q = queue[i], order = optionOrders[i];
+    root.innerHTML = `<div class="fade-in max-w-3xl mx-auto space-y-4">
+      <div class="flex flex-wrap justify-between gap-2 text-sm font-bold">
+        <span>${opts.examType === 'combined' ? 'Simulacro completo' : opts.examType === 'specific' ? 'Simulacro específico' : 'Simulacro general'}</span>
+        <span id="examTimer" class="tabular-nums">00:00</span>
+      </div>
+      <div class="flex gap-1.5 overflow-x-auto pb-2">${queue.map((_,n)=>`<button data-jump="${n}" class="shrink-0 w-9 h-9 rounded-lg text-xs font-black ${n===i?'bg-brand-600 text-white':answers[n]!==null?'bg-emerald-100 text-emerald-800':'bg-white border border-slate-200'}">${n+1}</button>`).join('')}</div>
+      ${card(`<div class="flex justify-between gap-3 mb-5"><span class="text-xs font-bold text-slate-500">${q.scope==='specific'?'ESPECÍFICO':'GENERAL'} · ${esc(q.topic)}</span><button data-mark class="text-xl" aria-label="Marcar para revisar">${marked.has(i)?'🔖':'🔳'}</button></div>
+        <h2 class="text-lg md:text-2xl font-extrabold leading-snug mb-6">${esc(q.enunciado)}</h2>
+        <div class="flex flex-col gap-2.5">${order.map((orig,pos)=>`<button data-answer="${orig}" class="text-left w-full border-2 rounded-xl px-4 py-3.5 flex gap-3 ${answers[i]===orig?'border-brand-500 bg-brand-50':'border-slate-200 bg-white'}"><span class="w-7 h-7 rounded-lg bg-slate-100 grid place-items-center font-black">${LETTERS[pos]}</span><span class="flex-1">${esc(q.options[orig])}</span></button>`).join('')}</div>
+        <div class="mt-6 pt-5 border-t flex justify-between gap-2">${btn('← Anterior','data-prev','ghost').replace('py-2.5','py-3')}${i===queue.length-1?btn('Entregar examen','data-submit','success').replace('py-2.5','py-3'):btn('Siguiente →','data-next').replace('py-2.5','py-3')}</div>`)}
+      <p class="text-xs text-center text-slate-500">${answers.filter(x=>x!==null).length}/${queue.length} respondidas · ${marked.size} marcadas</p>
+    </div>`;
+    updateTimer();
+    root.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>{i=+b.dataset.jump;render();});
+    root.querySelectorAll('[data-answer]').forEach(b=>b.onclick=()=>{answers[i]=+b.dataset.answer;render();});
+    root.querySelector('[data-mark]').onclick=()=>{marked.has(i)?marked.delete(i):marked.add(i);render();};
+    root.querySelector('[data-prev]')?.addEventListener('click',()=>{if(i>0){i--;render();}});
+    root.querySelector('[data-next]')?.addEventListener('click',()=>{i++;render();});
+    root.querySelector('[data-submit]')?.addEventListener('click',submit);
+  }
+
+  function updateTimer(){ const el=root.querySelector('#examTimer'); if(el){const s=Math.floor((Date.now()-startedAt)/1000);el.textContent=`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;} }
+
+  async function submit(){
+    const pending=answers.filter(x=>x===null).length;
+    if (!await confirmDialog('¿Entregar examen?', pending?`Quedan ${pending} preguntas sin responder.`:'Se corregirán todas las respuestas.','Entregar',false)) return;
+    clearInterval(timer);
+    const log=[]; let correct=0;
+    for(let n=0;n<queue.length;n++){
+      const q=queue[n], selected=answers[n], ok=selected===q.correctIndex;
+      if(ok) correct++;
+      const updated=applyResult(q,ok,ok?2:0); queue[n]=updated; await db.put('questions',updated);
+      await db.put('attempts',{questionId:q.id,scope:q.scope,topic:q.topic,category:q.category,selectedIndex:selected,correctIndex:q.correctIndex,correct:ok,grade:ok?2:0,at:Date.now(),mode:'exam'});
+      log.push({questionId:q.id,correct:ok,selectedIndex:selected,correctIndex:q.correctIndex});
+    }
+    await db.put('sessions',{mode:'exam',examType:opts.examType,at:startedAt,durationMs:Date.now()-startedAt,total:queue.length,answered:queue.length-pending,correct,aborted:false,log});
+    onDone({mode:'exam',examType:opts.examType,queue,log,correct,answered:queue.length,startedAt,aborted:false});
+  }
+}
+
 export function renderSummary(root, s, { onRetryWrong, onHome }) {
   const pct = s.answered ? Math.round(100 * s.correct / s.answered) : 0;
   const wrong = s.log.filter(l => !l.correct).map(l => l.questionId);
   const mins = Math.max(1, Math.round((Date.now() - s.startedAt) / 60000));
   const emoji = pct >= 90 ? '🏆' : pct >= 70 ? '🎉' : pct >= 50 ? '💪' : '📚';
   const msg = pct >= 90 ? 'Dominio excelente.' : pct >= 70 ? 'Buen resultado, sigue así.' : pct >= 50 ? 'Vas por buen camino: repasa los fallos.' : 'Repasa la teoría y vuelve a intentarlo.';
+  const generalLog = s.log.filter((_,i)=>s.queue[i]?.scope==='general');
+  const specificLog = s.log.filter((_,i)=>s.queue[i]?.scope==='specific');
+  const scopeResult = (logs) => logs.length ? `${logs.filter(x=>x.correct).length}/${logs.length}` : '—';
 
   root.innerHTML = `
     <div class="fade-in max-w-lg mx-auto">
@@ -198,12 +267,14 @@ export function renderSummary(root, s, { onRetryWrong, onHome }) {
             <div class="bg-rose-50 rounded-xl p-3"><div class="text-2xl font-black text-rose-500">${s.answered - s.correct}</div><div class="text-[10px] font-bold uppercase text-rose-700/70">Fallos</div></div>
             <div class="bg-slate-50 rounded-xl p-3"><div class="text-2xl font-black text-slate-700">${mins}′</div><div class="text-[10px] font-bold uppercase text-slate-500">Tiempo</div></div>
           </div>
+          ${s.mode==='exam'?`<div class="grid grid-cols-2 gap-3 mt-3 text-center"><div class="bg-indigo-50 rounded-xl p-3"><b>${scopeResult(generalLog)}</b><div class="text-xs">General</div></div><div class="bg-indigo-50 rounded-xl p-3"><b>${scopeResult(specificLog)}</b><div class="text-xs">Específico</div></div></div>`:''}
           <div class="flex flex-col gap-2 mt-7">
             ${wrong.length ? btn(`🔁 Repetir los ${wrong.length} fallos`, 'data-retry', 'amber').replace('py-2.5', 'py-3') : ''}
             ${btn('Volver al inicio', 'data-home', 'ghost').replace('py-2.5', 'py-3')}
           </div>
           <p class="text-xs text-slate-400 mt-5">Tu progreso se guarda automáticamente en este dispositivo.</p>
         </div>`)}
+      ${s.mode==='exam'?card(`<h3 class="font-extrabold mb-4">Revisión del examen</h3><div class="space-y-4">${s.log.map((l,i)=>{const q=s.queue[i];return `<details class="border rounded-xl p-3 ${l.correct?'border-emerald-200':'border-rose-300'}"><summary class="cursor-pointer font-bold">${i+1}. ${l.correct?'✓':'✕'} ${esc(q.enunciado)}</summary><div class="mt-3 text-sm space-y-2"><p><b>Tu respuesta:</b> ${l.selectedIndex==null?'Sin responder':esc(q.options[l.selectedIndex])}</p><p><b>Correcta:</b> ${esc(q.options[q.correctIndex])}</p><p>${esc(q.feedback)}</p><p class="text-xs text-slate-500"><b>Fuente:</b> ${esc(q.documentId)}${q.section?` · § ${esc(q.section)}`:''}</p></div></details>`;}).join('')}</div>`):''}
     </div>`;
   root.querySelector('[data-retry]')?.addEventListener('click', () => onRetryWrong(wrong));
   root.querySelector('[data-home]').addEventListener('click', onHome);

@@ -1,10 +1,10 @@
 // Service worker: app-shell offline. Sube CACHE al desplegar cambios.
-const CACHE = 'quizmaster-v1';
+const CACHE = 'quizadif-v4';
 const SHELL = [
   './', './index.html', './manifest.webmanifest',
   './js/app.js', './js/db.js', './js/model.js', './js/quiz.js', './js/ui.js', './js/views.js',
-  './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png',
-  'https://cdn.tailwindcss.com',
+  './bank/questions.json', './vendor/tailwindcss.js',
+  './icons/favicon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
 ];
 
 self.addEventListener('install', e => {

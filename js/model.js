@@ -4,7 +4,8 @@ export const DAY = 86400000;
 
 /**
  * Pregunta canónica:
- * { id, enunciado, options[], correctIndex, feedback, category, difficulty, tags[],
+ * { id, scope, topic, category, subtopic, documentId, section, page,
+ *   enunciado, options[], correctIndex, feedback, difficulty, tags[],
  *   source, createdAt, srs:{ ease, interval, reps, lapses, dueAt, lastAt }, hist:{ seen, correct, incorrect, streak } }
  */
 
@@ -38,10 +39,21 @@ export function normalizeQuestion(raw) {
     options,
     correctIndex,
     feedback: String(raw.feedback ?? raw.explicacion ?? raw.explanation ?? '').trim(),
+    scope: ['general', 'specific'].includes(raw.scope) ? raw.scope : 'general',
+    topic: String(raw.topic ?? raw.tema ?? raw.category ?? 'General').trim() || 'General',
     category: String(raw.category ?? raw.categoria ?? raw.tema ?? 'General').trim() || 'General',
+    subtopic: String(raw.subtopic ?? raw.subtema ?? '').trim(),
+    documentId: String(raw.documentId ?? raw.documento ?? raw.source ?? '').trim(),
+    documentRevision: String(raw.documentRevision ?? '').trim(),
+    section: String(raw.section ?? raw.epigrafe ?? '').trim(),
+    page: raw.page == null ? null : Number(raw.page),
+    sourceQuote: String(raw.sourceQuote ?? '').trim(),
+    status: ['draft', 'reviewed', 'verified'].includes(raw.status) ? raw.status : 'draft',
     difficulty: clamp(Number(raw.difficulty ?? raw.dificultad ?? 2), 1, 3),
     tags: Array.isArray(raw.tags) ? raw.tags.map(String) : [],
     source: String(raw.source ?? raw.fuente ?? '').trim(),
+    bookmarked: Boolean(raw.bookmarked),
+    mistakeDebt: Math.max(0, Number(raw.mistakeDebt ?? 0)),
     createdAt: Number(raw.createdAt ?? Date.now()),
     srs: raw.srs ?? newSrs(),
     hist: raw.hist ?? newHist(),
@@ -50,7 +62,9 @@ export function normalizeQuestion(raw) {
 
 export const blankQuestion = () => ({
   id: uid(), enunciado: '', options: ['', '', '', ''], correctIndex: 0,
-  feedback: '', category: 'General', difficulty: 2, tags: [], source: '',
+  feedback: '', scope: 'general', topic: 'General', category: 'General', subtopic: '',
+  documentId: '', documentRevision: '', section: '', page: null, sourceQuote: '', status: 'draft',
+  difficulty: 2, tags: [], source: '', bookmarked: false, mistakeDebt: 0,
   createdAt: Date.now(), srs: newSrs(), hist: newHist(),
 });
 
@@ -102,7 +116,8 @@ export function applyResult(q, isCorrect, grade, now = Date.now()) {
   const hist = { ...q.hist };
   hist.seen++;
   if (isCorrect) { hist.correct++; hist.streak++; } else { hist.incorrect++; hist.streak = 0; }
-  return { ...q, hist, srs: schedule(q.srs, grade, now) };
+  const mistakeDebt = isCorrect ? Math.max(0, (q.mistakeDebt ?? 0) - 1) : Math.min(3, (q.mistakeDebt ?? 0) + 2);
+  return { ...q, hist, mistakeDebt, srs: schedule(q.srs, grade, now) };
 }
 
 // ---- Métricas ---------------------------------------------------------------
@@ -114,7 +129,8 @@ export function summarize(questions, attempts) {
 
   const byCategory = {};
   for (const q of questions) {
-    const c = (byCategory[q.category] ??= { total: 0, seen: 0, correct: 0, incorrect: 0, due: 0 });
+    const key = `${q.scope}|${q.topic}|${q.category}`;
+    const c = (byCategory[key] ??= { scope:q.scope, topic:q.topic, category:q.category, total: 0, seen: 0, correct: 0, incorrect: 0, due: 0 });
     c.total++; c.seen += q.hist.seen; c.correct += q.hist.correct; c.incorrect += q.hist.incorrect;
     if (isDue(q)) c.due++;
   }
@@ -160,6 +176,16 @@ export function streakDays(attempts) {
 }
 
 export const shuffle = (a) => { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [r[i], r[j]] = [r[j], r[i]]; } return r; };
+export function stratifiedSample(items, limit, key = q => q.topic) {
+  if (!limit || items.length <= limit) return shuffle(items);
+  const groups = new Map();
+  shuffle(items).forEach(x => { const k = key(x); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); });
+  const out = [], buckets = [...groups.values()];
+  while (out.length < limit && buckets.some(b => b.length)) for (const b of buckets) {
+    if (out.length < limit && b.length) out.push(b.pop());
+  }
+  return shuffle(out);
+}
 export const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Number.isFinite(n) ? n : lo));
 export const relTime = (ts) => {
   if (!ts) return '—';

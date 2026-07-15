@@ -1,0 +1,11 @@
+{
+  "name": "quizadif",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "generate:bank": "node scripts/generate-document-questions.mjs",
+    "validate:bank": "node scripts/validate-bank.mjs",
+    "check": "npm run validate:bank && npm test"
+  }
+}

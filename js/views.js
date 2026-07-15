@@ -19,7 +19,7 @@ export async function home(root, ctx) {
         ${card(`
           <div class="text-center py-4">
             <div class="text-5xl mb-4">👋</div>
-            <h1 class="text-2xl font-extrabold mb-2">Bienvenido a QuizMaster Pro</h1>
+            <h1 class="text-2xl font-extrabold mb-2">Bienvenido a QuizAdif</h1>
             <p class="text-slate-500 text-sm mb-7 leading-relaxed">Estudia con tests, repite lo que fallas en el momento justo y mide tu progreso. Todo se guarda en tu dispositivo y funciona sin conexión.</p>
             <div class="flex flex-col gap-2">
               ${btn('📥 Importar preguntas (JSON)', 'data-nav="bank"').replace('py-2.5', 'py-3.5')}
@@ -77,7 +77,7 @@ export async function home(root, ctx) {
     </div>`;
 
   root.querySelector('[data-review]')?.addEventListener('click', () => ctx.go('study', { auto: 'review' }));
-  root.querySelector('[data-exam]')?.addEventListener('click', () => ctx.go('study', { auto: 'exam' }));
+  root.querySelector('[data-exam]')?.addEventListener('click', () => ctx.go('study', { auto: 'exam-combined' }));
   root.querySelector('[data-weak]')?.addEventListener('click', () => ctx.go('study', { auto: 'weak' }));
 }
 
@@ -101,8 +101,9 @@ export async function study(root, ctx) {
   const qs = await db.getAll('questions');
   if (!qs.length) { root.innerHTML = empty('Sin preguntas', 'Importa o crea preguntas antes de estudiar.', btn('Ir al banco', 'data-nav="bank"')); return; }
 
+  const topics = [...new Set(qs.map(q => q.topic))].sort();
   const cats = [...new Set(qs.map(q => q.category))].sort();
-  const prefs = await db.getMeta('studyPrefs', { category: 'ALL', limit: 20, shuffleOptions: true });
+  const prefs = await db.getMeta('studyPrefs', { scope: 'all', topic:'ALL', category: 'ALL', limit: 20, shuffleOptions: true });
   const dueCount = qs.filter(isDue).length;
   const weakCount = qs.filter(q => mastery(q).key === 'weak').length;
 
@@ -111,6 +112,17 @@ export async function study(root, ctx) {
       <h1 class="text-2xl font-extrabold">Configurar sesión</h1>
 
       ${card(`
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Bloque</label>
+        <select id="scope" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-semibold bg-white">
+          <option value="all">General + Específico (${qs.length})</option>
+          <option value="general" ${prefs.scope==='general'?'selected':''}>General (${qs.filter(q=>q.scope==='general').length})</option>
+          <option value="specific" ${prefs.scope==='specific'?'selected':''}>Específico (${qs.filter(q=>q.scope==='specific').length})</option>
+        </select>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mt-5 mb-2">Tema</label>
+        <select id="topic" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-semibold bg-white">
+          <option value="ALL">Todos los temas</option>
+          ${topics.map(c => `<option value="${esc(c)}" ${prefs.topic === c ? 'selected' : ''}>${esc(c)} (${qs.filter(q => q.topic === c).length})</option>`).join('')}
+        </select>
         <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Categoría</label>
         <select id="cat" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-semibold bg-white focus:border-brand-500 focus:ring-0">
           <option value="ALL">Todas las categorías (${qs.length})</option>
@@ -129,9 +141,17 @@ export async function study(root, ctx) {
 
       <div class="grid gap-3">
         ${modeCard('practice', '🎯', 'Práctica', 'Respuesta y explicación inmediatas. Ideal para aprender.', 'brand')}
-        ${modeCard('exam', '⏱️', 'Simulacro de examen', 'Sin feedback hasta el final. Mide tu nivel real.', 'amber')}
+        ${modeCard('new', '✨', 'Preguntas nuevas', 'Recorre primero lo que aún no has visto.', 'brand')}
+        ${modeCard('mistakes', '🔁', 'Fallos pendientes', 'Recupera errores hasta consolidarlos con dos aciertos.', 'rose', !qs.some(q => q.mistakeDebt > 0))}
+        ${modeCard('bookmarked', '🔖', 'Marcadas', 'Practica las preguntas que hayas guardado.', 'amber', !qs.some(q => q.bookmarked))}
         ${modeCard('review', '🧠', `Repaso inteligente${dueCount ? ` · ${dueCount} pendientes` : ''}`, 'Solo lo que toca repasar hoy según tu memoria.', 'emerald', !dueCount)}
         ${modeCard('weak', '🔥', `Puntos débiles${weakCount ? ` · ${weakCount}` : ''}`, 'Solo las preguntas que sueles fallar.', 'rose', !weakCount)}
+      </div>
+      <h2 class="text-xl font-extrabold pt-4">Simulacros</h2>
+      <div class="grid md:grid-cols-3 gap-3">
+        ${modeCard('exam-general','⏱️','General · 10','10 preguntas del bloque General.','amber',qs.filter(q=>q.scope==='general').length<10)}
+        ${modeCard('exam-specific','⏱️','Específico · 20','20 preguntas del bloque Específico.','amber',qs.filter(q=>q.scope==='specific').length<20)}
+        ${modeCard('exam-combined','🏁','Completo · 30','10 generales y 20 específicas.','amber',qs.filter(q=>q.scope==='general').length<10||qs.filter(q=>q.scope==='specific').length<20)}
       </div>
     </div>`;
 
@@ -139,14 +159,19 @@ export async function study(root, ctx) {
   $('#limit').oninput = e => $('#limitVal').textContent = e.target.value;
 
   const launch = async (mode) => {
+    const isExam = mode.startsWith('exam-');
     const cfg = {
+      scope: $('#scope').value,
+      topic: $('#topic').value,
       category: $('#cat').value,
-      limit: +$('#limit').value,
+      limit: isExam ? null : +$('#limit').value,
       shuffleOptions: $('#shuf').checked,
-      mode: mode === 'weak' ? 'practice' : mode,
+      mode: isExam ? 'exam' : (['weak','new','mistakes','bookmarked'].includes(mode) ? 'practice' : mode),
       onlyWeak: mode === 'weak',
+      state: ['new','mistakes','bookmarked'].includes(mode) ? mode : 'all',
+      examType: isExam ? mode.replace('exam-','') : null,
     };
-    await db.setMeta('studyPrefs', { category: cfg.category, limit: cfg.limit, shuffleOptions: cfg.shuffleOptions });
+    await db.setMeta('studyPrefs', { scope:cfg.scope, topic:cfg.topic, category: cfg.category, limit: +$('#limit').value, shuffleOptions: cfg.shuffleOptions });
     ctx.launch(cfg);
   };
   root.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => launch(b.dataset.mode));
@@ -400,7 +425,7 @@ async function exportDialog(ctx) {
   const full = () => JSON.stringify({ version: 1, exportedAt: Date.now(), questions, attempts, sessions }, null, 2);
   const only = () => JSON.stringify({ questions: questions.map(({ srs, hist, ...q }) => q) }, null, 2);
 
-  el.querySelector('[data-full]').onclick = () => { download(`quizmaster-backup-${date}.json`, full()); el.remove(); };
+  el.querySelector('[data-full]').onclick = () => { download(`quizadif-backup-${date}.json`, full()); el.remove(); };
   el.querySelector('[data-only]').onclick = () => { download(`preguntas-${date}.json`, only()); el.remove(); };
   el.querySelector('[data-clip]').onclick = () => { copy(only()); el.remove(); };
   el.querySelector('[data-wipe]').onclick = async () => {
@@ -427,6 +452,11 @@ export async function stats(root) {
   const streak = streakDays(attempts);
   const cats = Object.entries(s.byCategory).sort((a, b) => (a[1].rate ?? 101) - (b[1].rate ?? 101));
   const worst = cats.filter(([, c]) => c.rate !== null && c.rate < 70);
+  const gen = attempts.filter(a=>a.scope==='general'), spec=attempts.filter(a=>a.scope==='specific');
+  const rateOf = a => a.length ? Math.round(100*a.filter(x=>x.correct).length/a.length) : 0;
+  const exams = sessions.filter(x=>x.mode==='exam').sort((a,b)=>b.at-a.at).slice(0,10);
+  const mistakeCount = qs.filter(q=>(q.mistakeDebt??0)>0).length;
+  const avgSeconds = attempts.filter(a=>a.elapsedMs).length ? Math.round(attempts.filter(a=>a.elapsedMs).reduce((n,a)=>n+a.elapsedMs,0)/attempts.filter(a=>a.elapsedMs).length/1000) : 0;
 
   root.innerHTML = `
     <div class="fade-in space-y-4">
@@ -438,6 +468,9 @@ export async function stats(root) {
         ${stat(`${streak}d`, 'Racha', 'amber')}
         ${stat(sessions.length, 'Sesiones', 'brand'.replace('brand', 'slate'))}
       </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${stat(`${rateOf(gen)}%`,'General','brand')}${stat(`${rateOf(spec)}%`,'Específico','amber')}${stat(mistakeCount,'Fallos pendientes','rose')}${stat(`${avgSeconds}s`,'Tiempo/pregunta','slate')}
+      </div>
 
       ${card(`
         <h3 class="font-extrabold mb-1">Actividad (14 días)</h3>
@@ -447,16 +480,16 @@ export async function stats(root) {
       ${worst.length ? `
       <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5">
         <h3 class="font-extrabold text-amber-900 mb-1">💡 Dónde centrarte</h3>
-        <p class="text-sm text-amber-800">Tu punto más flojo es <b>${esc(worst[0][0])}</b> (${worst[0][1].rate}% de acierto). Haz una práctica solo de esa categoría.</p>
+        <p class="text-sm text-amber-800">Tu punto más flojo es <b>${esc(worst[0][1].topic)} · ${esc(worst[0][1].category)}</b> (${worst[0][1].rate}% de acierto).</p>
       </div>` : ''}
 
       ${card(`
         <h3 class="font-extrabold mb-4">Rendimiento por categoría</h3>
         <div class="space-y-3">
-          ${cats.map(([name, c]) => `
+          ${cats.map(([, c]) => `
             <div>
               <div class="flex justify-between text-xs font-bold mb-1">
-                <span class="text-slate-700 truncate pr-2">${esc(name)}</span>
+                <span class="text-slate-700 truncate pr-2">${c.scope==='specific'?'Específico':'General'} · ${esc(c.topic)} · ${esc(c.category)}</span>
                 <span class="tabular-nums shrink-0 ${c.rate === null ? 'text-slate-300' : c.rate >= 80 ? 'text-emerald-600' : c.rate >= 60 ? 'text-amber-600' : 'text-rose-500'}">${c.rate === null ? 'sin datos' : c.rate + '%'} · ${c.total}p</span>
               </div>
               ${bar(c.rate ?? 0, c.rate === null ? 'slate' : c.rate >= 80 ? 'emerald' : c.rate >= 60 ? 'amber' : 'rose')}
@@ -467,6 +500,7 @@ export async function stats(root) {
         <h3 class="font-extrabold mb-4">Estado de tus preguntas</h3>
         ${masteryBars(s)}
         <p class="text-xs text-slate-400 mt-3">Una pregunta se considera <b>dominada</b> tras 3 aciertos seguidos con ≥80% de acierto histórico.</p>`)}
+      ${exams.length?card(`<h3 class="font-extrabold mb-4">Últimos simulacros</h3><div class="space-y-2">${exams.map(x=>`<div class="flex justify-between border-b pb-2 text-sm"><span>${new Date(x.at).toLocaleDateString('es')} · ${x.examType||'simulacro'}</span><b>${x.correct}/${x.total} · ${Math.round(100*x.correct/x.total)}%</b></div>`).join('')}</div>`):''}
     </div>`;
 }
 
@@ -544,7 +578,7 @@ export async function prompt(root) {
   };
   root.querySelectorAll('input,select,textarea').forEach(i => i.oninput = update);
   $('[data-copy]').onclick = () => copy(buildPrompt(read()));
-  $('[data-dl]').onclick = () => download('prompt-quizmaster.txt', buildPrompt(read()), 'text/plain');
+  $('[data-dl]').onclick = () => download('prompt-quizadif.txt', buildPrompt(read()), 'text/plain');
   update();
 }
 
@@ -602,7 +636,7 @@ export async function help(root) {
       </div>
 
       ${section('🎓', 'En una frase', `
-        <p>QuizMaster Pro es una app para <b>estudiar con preguntas tipo test</b>. Tú le das las preguntas (o se las pides a una IA), y ella se encarga de preguntártelas, corregirte, explicarte los fallos y recordarte lo que estás a punto de olvidar.</p>`)}
+        <p>QuizAdif es una app para <b>preparar exámenes tipo test de ADIF</b>. Incluye un banco clasificado, simulacros, explicación de fallos y repaso inteligente.</p>`)}
 
       ${section('🧠', 'El truco: la repetición espaciada', `
         <p>Nuestro cerebro olvida rápido lo que solo lee una vez. La ciencia dice que lo mejor es <b>repasar justo antes de olvidarlo</b>.</p>
