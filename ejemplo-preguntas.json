@@ -38,7 +38,7 @@
       "tags": ["json", "formato"]
     },
     {
-      "enunciado": "¿Dónde se guardan tus preguntas y tu progreso en QuizMaster Pro?",
+      "enunciado": "¿Dónde se guardan tus preguntas y tu progreso en QuizAdif?",
       "options": [
         "En un servidor de la nube asociado a tu cuenta",
         "En el almacenamiento local del navegador de tu dispositivo",

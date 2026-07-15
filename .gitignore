@@ -1,0 +1,6 @@
+# Documentación fuente local. Puede contener documentos de uso interno.
+Recursos/
+
+# Archivos locales habituales
+.DS_Store
+Thumbs.db

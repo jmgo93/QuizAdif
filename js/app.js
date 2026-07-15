@@ -1,8 +1,9 @@
 // Router + bootstrap.
 import * as db from './db.js';
 import * as V from './views.js';
-import { buildQueue, startSession, renderSummary } from './quiz.js';
+import { buildQueue, startSession, startExamSession, renderSummary } from './quiz.js';
 import { toast } from './ui.js';
+import { normalizeQuestion } from './model.js';
 
 const root = document.getElementById('app');
 const ROUTES = { home: V.home, study: V.study, bank: V.bank, stats: V.stats, prompt: V.prompt, help: V.help };
@@ -27,7 +28,8 @@ const ctx = {
 function runSession(queue, cfg) {
   markNav(null);
   window.scrollTo(0, 0);
-  startSession(root, queue, cfg, (s) => {
+  const runner = cfg.mode === 'exam' ? startExamSession : startSession;
+  runner(root, queue, cfg, (s) => {
     window.scrollTo(0, 0);
     renderSummary(root, s, {
       onRetryWrong: async (ids) => {
@@ -71,6 +73,16 @@ addEventListener('appinstalled', () => toast('App instalada 🎉'));
 // --- Bootstrap
 (async () => {
   await db.open();
+  try {
+    const bank = await fetch('./bank/questions.json', { cache: 'no-cache' }).then(r => {
+      if (!r.ok) throw new Error(`Banco no disponible (${r.status})`); return r.json();
+    });
+    const current = await db.getMeta('bankVersion');
+    if (current !== bank.version) {
+      const questions = bank.questions.map(normalizeQuestion).filter(Boolean);
+      await db.replaceBundledQuestions(questions, bank.version);
+    }
+  } catch (e) { console.warn('No se pudo actualizar el banco integrado', e); }
   if (await db.requestPersistence()) document.getElementById('syncDot').textContent = '● Guardado local';
   paint(ROUTES[currentRoute()] ? currentRoute() : 'home');
 

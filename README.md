@@ -1,6 +1,18 @@
-# QuizMaster Pro
+# QuizAdif
 
-PWA de estudio con tests, repetición espaciada y estadísticas. **Sin build, sin backend, sin dependencias npm.** Funciona offline e instalable en móvil y escritorio.
+PWA para preparar exámenes tipo test de ADIF mediante práctica, simulacros, repetición espaciada y estadísticas. **Sin build ni backend.** Funciona offline y es instalable en móvil y escritorio.
+
+El banco integrado se organiza en **General** y **Específico**, con jerarquía por tema, categoría, subtema y referencia documental. Incluye simulacros General (10), Específico (20) y Completo (10 + 20).
+
+El banco actual contiene **650 preguntas**: 50 para cada uno de los 13 temas documentales, 250 del bloque General y 400 del Específico. Las preguntas generadas desde texto conservan el fragmento fuente y se marcan como `draft` hasta su revisión manual; las revisadas mantienen los estados `reviewed` o `verified`.
+
+## Desarrollo
+
+```bash
+npm run check
+```
+
+El comando valida `bank/questions.json`, comprueba su cobertura documental mínima y ejecuta las pruebas del dominio.
 
 ## Funcionalidades
 
@@ -36,7 +48,7 @@ ejemplo-preguntas.json     Set de muestra
 ```bash
 git init
 git add .
-git commit -m "feat: QuizMaster Pro"
+git commit -m "feat: QuizAdif"
 git branch -M main
 git remote add origin https://github.com/USUARIO/REPO.git
 git push -u origin main
@@ -81,7 +93,7 @@ Sin backend por diseño. Para migrar progreso: **Banco → Exportar → Copia co
 
 ## Actualizar la app desplegada
 
-Sube la versión de caché en `sw.js` (`CACHE = 'quizmaster-v2'`) en cada release para que los clientes reciban los cambios.
+Sube la versión de caché en `sw.js` (`CACHE = 'quizadif-v4'`) en cada release para que los clientes reciban los cambios.
 
 ## Licencia
 
