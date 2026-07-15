@@ -1,9 +1,9 @@
 // Service worker: app-shell offline. Sube CACHE al desplegar cambios.
-const CACHE = 'quizadif-v16';
+const CACHE = 'quizadif-v18';
 const SHELL = [
   './', './index.html', './manifest.webmanifest',
-  './js/app.js', './js/db.js', './js/model.js', './js/quiz.js', './js/ui.js', './js/views.js',
-  './bank/questions.json', './bank/editorial-expansion.json', './bank/editorial-code-ethics.json', './bank/editorial-drc.json', './bank/editorial-equality.json', './bank/editorial-pe2030.json', './bank/editorial-risks.json', './bank/editorial-earthworks.json', './bank/editorial-cab.json', './bank/editorial-turnouts.json', './bank/editorial-construction-safety.json', './bank/editorial-railway-works.json', './bank/editorial-maintenance.json', './bank/editorial-designation.json', './bank/editorial-compatible-works.json', './vendor/tailwindcss.js',
+  './js/app.js', './js/db.js', './js/model.js', './js/quiz.js', './js/ui.js', './js/views.js', './js/visuals.js',
+  './bank/questions.json', './bank/editorial-expansion.json', './bank/editorial-code-ethics.json', './bank/editorial-code-ethics-extra.json', './bank/editorial-drc.json', './bank/editorial-drc-extra.json', './bank/editorial-equality.json', './bank/editorial-equality-extra.json', './bank/editorial-pe2030.json', './bank/editorial-pe2030-extra.json', './bank/editorial-risks.json', './bank/editorial-risks-extra.json', './bank/editorial-earthworks.json', './bank/editorial-earthworks-extra.json', './bank/editorial-cab.json', './bank/editorial-cab-extra.json', './bank/editorial-turnouts.json', './bank/editorial-turnouts-extra.json', './bank/editorial-construction-safety.json', './bank/editorial-construction-safety-extra.json', './bank/editorial-railway-works.json', './bank/editorial-railway-works-extra.json', './bank/editorial-maintenance.json', './bank/editorial-maintenance-extra.json', './bank/editorial-designation.json', './bank/editorial-designation-extra.json', './bank/editorial-compatible-works.json', './bank/editorial-compatible-works-extra.json', './vendor/tailwindcss.js',
   './icons/favicon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
 ];
 

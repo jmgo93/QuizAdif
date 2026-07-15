@@ -2,8 +2,12 @@
 import * as db from './db.js';
 import { applyResult, shuffle, isDue, mastery, stratifiedSample } from './model.js';
 import { h, esc, btn, toast, card, confirmDialog } from './ui.js';
+import { topicVisual, categoryIcon } from './visuals.js';
 
 const LETTERS = 'ABCDEFGH';
+
+export const examPoints = (correct, incorrect) => correct - incorrect / 3;
+export const examGrade = (correct, incorrect, total) => total ? Math.max(0, examPoints(correct, incorrect) * 10 / total) : 0;
 
 /** @typedef {{mode:'practice'|'exam'|'review', queue:object[], i:number, answered:boolean, correct:number, startedAt:number, log:object[], selected:number|null, shuffledOpts:number[]}} Session */
 
@@ -65,8 +69,8 @@ export function startSession(root, queue, opts, onDone) {
         <div class="mb-4">
           <div class="flex items-center justify-between text-xs font-bold text-slate-500 mb-2">
             <span>${s.i + 1} / ${s.queue.length}</span>
-            <span class="flex gap-2">
-              <span class="px-2 py-0.5 rounded-full bg-brand-100 text-brand-700">${q.scope === 'specific' ? 'Específico' : 'General'} · ${esc(q.category)}</span>
+            <span class="flex flex-wrap justify-end gap-2">
+              <span class="px-2 py-0.5 rounded-full bg-brand-100 text-brand-700">${q.scope === 'specific' ? '🛠️ Específico' : '📘 General'} · ${topicVisual(q.topic)[0]} ${esc(q.topic)} · ${categoryIcon(q.category)} ${esc(q.category)}</span>
               <span class="px-2 py-0.5 rounded-full bg-${m.color}-100 text-${m.color}-700">${m.label}</span>
               <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">${modeLabel(s.mode)}</span>
               <span class="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">${esc(q.questionType||'Test')}</span>
@@ -212,7 +216,7 @@ export function startExamSession(root, queue, opts, onDone) {
         <span id="examTimer" class="tabular-nums">00:00</span>
       </div>
       <div class="flex gap-1.5 overflow-x-auto pb-2">${queue.map((_,n)=>`<button data-jump="${n}" class="shrink-0 w-9 h-9 rounded-lg text-xs font-black ${n===i?'bg-brand-600 text-white':answers[n]!==null?'bg-emerald-100 text-emerald-800':'bg-white border border-slate-200'}">${n+1}</button>`).join('')}</div>
-      ${card(`<div class="flex justify-between gap-3 mb-5"><span class="text-xs font-bold text-slate-500">${q.scope==='specific'?'ESPECÍFICO':'GENERAL'} · ${esc(q.topic)}</span><button data-mark class="text-xl" aria-label="Marcar para revisar">${marked.has(i)?'🔖':'🔳'}</button></div>
+      ${card(`<div class="flex justify-between gap-3 mb-5"><span class="text-xs font-bold text-slate-500">${q.scope==='specific'?'🛠️ ESPECÍFICO':'📘 GENERAL'} · ${topicVisual(q.topic)[0]} ${esc(q.topic)} · ${categoryIcon(q.category)} ${esc(q.category)}</span><button data-mark class="text-xl" aria-label="Marcar para revisar">${marked.has(i)?'🔖':'🔳'}</button></div>
         <h2 class="text-lg md:text-2xl font-extrabold leading-snug mb-6">${esc(q.enunciado)}</h2>
         <div class="flex flex-col gap-2.5">${order.map((orig,pos)=>`<button data-answer="${orig}" class="text-left w-full border-2 rounded-xl px-4 py-3.5 flex gap-3 ${answers[i]===orig?'border-brand-500 bg-brand-50':'border-slate-200 bg-white'}"><span class="w-7 h-7 rounded-lg bg-slate-100 grid place-items-center font-black">${LETTERS[pos]}</span><span class="flex-1">${esc(q.options[orig])}</span></button>`).join('')}</div>
         <div class="mt-6 pt-5 border-t flex justify-between gap-2">${btn('← Anterior','data-prev','ghost').replace('py-2.5','py-3')}${i===queue.length-1?btn('Entregar examen','data-submit','success').replace('py-2.5','py-3'):btn('Siguiente →','data-next').replace('py-2.5','py-3')}</div>`)}
@@ -241,13 +245,19 @@ export function startExamSession(root, queue, opts, onDone) {
       await db.put('attempts',{questionId:q.id,scope:q.scope,topic:q.topic,category:q.category,questionType:q.questionType,selectedIndex:selected,correctIndex:q.correctIndex,correct:ok,grade:ok?2:0,at:Date.now(),mode:'exam'});
       log.push({questionId:q.id,correct:ok,selectedIndex:selected,correctIndex:q.correctIndex});
     }
-    await db.put('sessions',{mode:'exam',examType:opts.examType,at:startedAt,durationMs:Date.now()-startedAt,total:queue.length,answered:queue.length-pending,correct,aborted:false,log});
-    onDone({mode:'exam',examType:opts.examType,queue,log,correct,answered:queue.length,startedAt,aborted:false});
+    const incorrect=log.filter(x=>x.selectedIndex!==null&&!x.correct).length;
+    const points=examPoints(correct,incorrect), grade=examGrade(correct,incorrect,queue.length);
+    await db.put('sessions',{mode:'exam',examType:opts.examType,at:startedAt,durationMs:Date.now()-startedAt,total:queue.length,answered:queue.length-pending,correct,incorrect,points,grade,aborted:false,log});
+    onDone({mode:'exam',examType:opts.examType,queue,log,correct,incorrect,points,grade,answered:queue.length-pending,startedAt,aborted:false});
   }
 }
 
 export function renderSummary(root, s, { onRetryWrong, onHome }) {
-  const pct = s.answered ? Math.round(100 * s.correct / s.answered) : 0;
+  const examIncorrect = s.mode === 'exam' ? s.log.filter(l => l.selectedIndex !== null && !l.correct).length : 0;
+  const examTotal = s.queue.length;
+  const netPoints = s.mode === 'exam' ? examPoints(s.correct, examIncorrect) : s.correct;
+  const grade = s.mode === 'exam' ? examGrade(s.correct, examIncorrect, examTotal) : null;
+  const pct = s.mode === 'exam' ? Math.round(grade * 10) : (s.answered ? Math.round(100 * s.correct / s.answered) : 0);
   const wrong = s.log.filter(l => !l.correct).map(l => l.questionId);
   const mins = Math.max(1, Math.round((Date.now() - s.startedAt) / 60000));
   const emoji = pct >= 90 ? '🏆' : pct >= 70 ? '🎉' : pct >= 50 ? '💪' : '📚';
@@ -263,7 +273,8 @@ export function renderSummary(root, s, { onRetryWrong, onHome }) {
           <div class="text-5xl mb-3">${emoji}</div>
           <h2 class="text-2xl font-extrabold">${s.aborted ? 'Sesión interrumpida' : 'Sesión completada'}</h2>
           <p class="text-slate-500 text-sm mt-1 mb-6">${esc(msg)}</p>
-          <div class="text-6xl font-black text-brand-600 tabular-nums">${pct}<span class="text-2xl">%</span></div>
+          <div class="text-6xl font-black text-brand-600 tabular-nums">${s.mode==='exam'?grade.toFixed(2):pct}<span class="text-2xl">${s.mode==='exam'?' / 10':'%'}</span></div>
+          ${s.mode==='exam'?`<p class="text-xs font-semibold text-slate-500 mt-2">${netPoints.toFixed(2)} puntos netos · ${s.correct} aciertos − ${examIncorrect}/3 fallos · las respuestas en blanco no penalizan</p>`:''}
           <div class="grid grid-cols-3 gap-3 mt-6 text-center">
             <div class="bg-emerald-50 rounded-xl p-3"><div class="text-2xl font-black text-emerald-600">${s.correct}</div><div class="text-[10px] font-bold uppercase text-emerald-700/70">Aciertos</div></div>
             <div class="bg-rose-50 rounded-xl p-3"><div class="text-2xl font-black text-rose-500">${s.answered - s.correct}</div><div class="text-[10px] font-bold uppercase text-rose-700/70">Fallos</div></div>

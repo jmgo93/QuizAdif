@@ -5,6 +5,7 @@ import {
   dailySeries, streakDays, mastery, isDue, relTime, clamp,
 } from './model.js';
 import { h, esc, btn, card, stat, bar, empty, toast, copy, download, confirmDialog, barChart } from './ui.js';
+import { topicVisual, categoryIcon } from './visuals.js';
 
 // ---------------------------------------------------------------- HOME
 export async function home(root, ctx) {
@@ -115,19 +116,19 @@ export async function study(root, ctx) {
       ${card(`
         <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Bloque</label>
         <select id="scope" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-semibold bg-white">
-          <option value="all">General + Específico (${qs.length})</option>
-          <option value="general" ${prefs.scope==='general'?'selected':''}>General (${qs.filter(q=>q.scope==='general').length})</option>
-          <option value="specific" ${prefs.scope==='specific'?'selected':''}>Específico (${qs.filter(q=>q.scope==='specific').length})</option>
+          <option value="all">🗂️ General + Específico (${qs.length})</option>
+          <option value="general" ${prefs.scope==='general'?'selected':''}>📘 General (${qs.filter(q=>q.scope==='general').length})</option>
+          <option value="specific" ${prefs.scope==='specific'?'selected':''}>🛠️ Específico (${qs.filter(q=>q.scope==='specific').length})</option>
         </select>
         <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mt-5 mb-2">Tema</label>
         <select id="topic" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-semibold bg-white">
           <option value="ALL">Todos los temas</option>
-          ${topics.map(c => `<option value="${esc(c)}" ${prefs.topic === c ? 'selected' : ''}>${esc(c)} (${qs.filter(q => q.topic === c).length})</option>`).join('')}
+          ${topics.map(c => `<option value="${esc(c)}" ${prefs.topic === c ? 'selected' : ''}>${topicVisual(c)[0]} ${esc(c)} (${qs.filter(q => q.topic === c).length})</option>`).join('')}
         </select>
         <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Categoría</label>
         <select id="cat" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-semibold bg-white focus:border-brand-500 focus:ring-0">
           <option value="ALL">Todas las categorías (${qs.length})</option>
-          ${cats.map(c => `<option value="${esc(c)}" ${prefs.category === c ? 'selected' : ''}>${esc(c)} (${qs.filter(q => q.category === c).length})</option>`).join('')}
+          ${cats.map(c => `<option value="${esc(c)}" ${prefs.category === c ? 'selected' : ''}>${categoryIcon(c)} ${esc(c)} (${qs.filter(q => q.category === c).length})</option>`).join('')}
         </select>
 
         <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mt-5 mb-2">Tipo de pregunta</label>
@@ -156,9 +157,9 @@ export async function study(root, ctx) {
       </div>
       <h2 class="text-xl font-extrabold pt-4">Simulacros</h2>
       <div class="grid md:grid-cols-3 gap-3">
-        ${modeCard('exam-general','⏱️','General · 10','10 preguntas del bloque General.','amber',qs.filter(q=>q.scope==='general').length<10)}
-        ${modeCard('exam-specific','⏱️','Específico · 20','20 preguntas del bloque Específico.','amber',qs.filter(q=>q.scope==='specific').length<20)}
-        ${modeCard('exam-combined','🏁','Completo · 30','10 generales y 20 específicas.','amber',qs.filter(q=>q.scope==='general').length<10||qs.filter(q=>q.scope==='specific').length<20)}
+        ${modeCard('exam-general','📘','General · 10','10 preguntas · cada 3 fallos restan 1 punto.','amber',qs.filter(q=>q.scope==='general').length<10)}
+        ${modeCard('exam-specific','🛠️','Específico · 20','20 preguntas · cada 3 fallos restan 1 punto.','amber',qs.filter(q=>q.scope==='specific').length<20)}
+        ${modeCard('exam-combined','🏁','Completo · 30','10 generales + 20 específicas · penalización por fallos.','amber',qs.filter(q=>q.scope==='general').length<10||qs.filter(q=>q.scope==='specific').length<20)}
       </div>
     </div>`;
 
@@ -201,8 +202,9 @@ const modeCard = (mode, icon, title, desc, color, disabled = false) => `
 export async function bank(root, ctx) {
   const qs = await db.getAll('questions');
   const cats = [...new Set(qs.map(q => q.category))].sort();
-  let filter = { text: '', category: 'ALL', state: 'ALL' };
-  const PAGE_SIZE = 40;
+  const topics = [...new Set(qs.map(q => q.topic))].sort();
+  let filter = { text: '', scope: 'ALL', topic: 'ALL', category: 'ALL', state: 'ALL' };
+  const PAGE_SIZE = 30;
   let visibleCount = PAGE_SIZE;
 
   root.innerHTML = `
@@ -234,13 +236,15 @@ export async function bank(root, ctx) {
       ${qs.length ? `
       <div class="flex gap-2 flex-wrap">
         <input id="q" placeholder="🔍 Buscar…" class="flex-1 min-w-[180px] border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold focus:border-brand-500 focus:ring-0">
-        <select id="fcat" class="border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold bg-white"><option value="ALL">Todas</option>${cats.map(c => `<option>${esc(c)}</option>`).join('')}</select>
+        <select id="fscope" class="border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold bg-white"><option value="ALL">🗂️ Ambos bloques</option><option value="general">📘 General</option><option value="specific">🛠️ Específico</option></select>
+        <select id="ftopic" class="border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold bg-white"><option value="ALL">📚 Todos los temas</option>${topics.map(t => `<option value="${esc(t)}">${topicVisual(t)[0]} ${esc(t)}</option>`).join('')}</select>
+        <select id="fcat" class="border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold bg-white"><option value="ALL">🏷️ Todas las categorías</option>${cats.map(c => `<option value="${esc(c)}">${categoryIcon(c)} ${esc(c)}</option>`).join('')}</select>
         <select id="fst" class="border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold bg-white">
           <option value="ALL">Cualquier estado</option><option value="new">Nuevas</option><option value="learning">Aprendiendo</option><option value="weak">Débiles</option><option value="mastered">Dominadas</option><option value="due">Toca repasar</option>
         </select>
       </div>
       <div id="bankCount" class="text-xs font-semibold text-slate-500" aria-live="polite"></div>
-      <div id="list" class="space-y-2"></div>` : empty('El banco está vacío', 'Importa un JSON, créalas a mano o genera un prompt para que una IA te las escriba.', btn('🤖 Ir al generador de prompts', 'data-nav="prompt"', 'ghost'))}
+      <div id="list" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 items-stretch"></div>` : empty('El banco está vacío', 'Importa un JSON, créalas a mano o genera un prompt para que una IA te las escriba.', btn('🤖 Ir al generador de prompts', 'data-nav="prompt"', 'ghost'))}
     </div>`;
 
   const $ = s => root.querySelector(s);
@@ -292,6 +296,8 @@ export async function bank(root, ctx) {
   // --- listado filtrado
   const renderList = () => {
     const f = qs.filter(q => {
+      if (filter.scope !== 'ALL' && q.scope !== filter.scope) return false;
+      if (filter.topic !== 'ALL' && q.topic !== filter.topic) return false;
       if (filter.category !== 'ALL' && q.category !== filter.category) return false;
       if (filter.state === 'due' ? !isDue(q) : filter.state !== 'ALL' && mastery(q).key !== filter.state) return false;
       if (filter.text && !(q.enunciado + q.options.join(' ')).toLowerCase().includes(filter.text)) return false;
@@ -304,24 +310,27 @@ export async function bank(root, ctx) {
     list.innerHTML = page.map(q => {
       const m = mastery(q);
       const rate = q.hist.seen ? Math.round(100 * q.hist.correct / q.hist.seen) : null;
+      const [topicIcon, topicBg, topicBorder] = topicVisual(q.topic);
       return `
-      <div class="bg-white border border-slate-200 rounded-xl p-4 flex gap-3 items-start hover:border-brand-300 transition">
-        <div class="flex-1 min-w-0">
-          <p class="font-bold text-sm leading-snug line-clamp-2">${esc(q.enunciado)}</p>
-          <div class="flex flex-wrap gap-1.5 mt-2 text-[10px] font-bold">
-            <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">${esc(q.category)}</span>
+      <article class="rounded-2xl p-4 flex flex-col gap-3 min-h-[210px] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" style="background:${topicBg};border:1px solid ${topicBorder}">
+        <div class="flex items-start gap-2">
+          <span class="text-2xl" aria-hidden="true">${topicIcon}</span>
+          <div class="min-w-0 flex-1"><span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide ${q.scope==='specific'?'bg-emerald-100 text-emerald-800':'bg-blue-100 text-blue-800'}">${q.scope==='specific'?'🛠️ Específico':'📘 General'}</span><p class="text-xs font-extrabold text-slate-600 mt-1 line-clamp-2">${esc(q.topic)}</p></div>
+        </div>
+        <p class="font-bold text-sm leading-snug line-clamp-4 flex-1">${esc(q.enunciado)}</p>
+        <div class="flex flex-wrap gap-1.5 text-[10px] font-bold">
+            <span class="px-2 py-0.5 rounded-full bg-white/80 text-slate-700">${categoryIcon(q.category)} ${esc(q.category)}</span>
             <span class="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">${esc(q.questionType || 'Test')}</span>
             <span class="px-2 py-0.5 rounded-full bg-${m.color}-100 text-${m.color}-700">${m.label}</span>
             ${rate !== null ? `<span class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-500">${rate}% · ${q.hist.seen} intentos</span>` : ''}
-            <span class="px-2 py-0.5 rounded-full bg-slate-50 text-slate-400">Repaso ${relTime(q.srs.dueAt)}</span>
-          </div>
+            <span class="px-2 py-0.5 rounded-full bg-white/70 text-slate-500">Repaso ${relTime(q.srs.dueAt)}</span>
         </div>
-        <div class="flex flex-col gap-1 shrink-0">
-          <button data-edit="${q.id}" class="w-8 h-8 rounded-lg hover:bg-slate-100 grid place-items-center" title="Editar">✎</button>
-          <button data-del="${q.id}" class="w-8 h-8 rounded-lg hover:bg-rose-50 text-rose-500 grid place-items-center" title="Eliminar">🗑</button>
+        <div class="flex justify-end gap-1 border-t border-slate-900/10 pt-2">
+          <button data-edit="${q.id}" class="w-8 h-8 rounded-lg hover:bg-white/80 grid place-items-center" title="Editar" aria-label="Editar pregunta">✎</button>
+          <button data-del="${q.id}" class="w-8 h-8 rounded-lg hover:bg-rose-50 text-rose-500 grid place-items-center" title="Eliminar" aria-label="Eliminar pregunta">🗑</button>
         </div>
-      </div>`;
-    }).join('') + (visibleCount < f.length ? `<div class="pt-3 text-center"><button data-more class="bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl px-6 py-3">Cargar ${Math.min(PAGE_SIZE, f.length-visibleCount)} más</button></div>` : '');
+      </article>`;
+    }).join('') + (visibleCount < f.length ? `<div class="pt-3 text-center md:col-span-2 xl:col-span-3"><button data-more class="bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl px-6 py-3">Cargar ${Math.min(PAGE_SIZE, f.length-visibleCount)} más</button></div>` : '');
 
     list.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editor(root, ctx, qs.find(q => q.id === b.dataset.edit), false));
     list.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
@@ -333,6 +342,8 @@ export async function bank(root, ctx) {
   };
 
   $('#q').oninput = e => { filter.text = e.target.value.toLowerCase(); visibleCount = PAGE_SIZE; renderList(); };
+  $('#fscope').onchange = e => { filter.scope = e.target.value; visibleCount = PAGE_SIZE; renderList(); };
+  $('#ftopic').onchange = e => { filter.topic = e.target.value; visibleCount = PAGE_SIZE; renderList(); };
   $('#fcat').onchange = e => { filter.category = e.target.value; visibleCount = PAGE_SIZE; renderList(); };
   $('#fst').onchange = e => { filter.state = e.target.value; visibleCount = PAGE_SIZE; renderList(); };
   renderList();
@@ -474,6 +485,15 @@ export async function stats(root) {
   const avgSeconds = attempts.filter(a=>a.elapsedMs).length ? Math.round(attempts.filter(a=>a.elapsedMs).reduce((n,a)=>n+a.elapsedMs,0)/attempts.filter(a=>a.elapsedMs).length/1000) : 0;
   const qById = new Map(qs.map(q=>[q.id,q]));
   const byType = Object.entries(attempts.reduce((acc,a)=>{const t=a.questionType||qById.get(a.questionId)?.questionType||'Sin clasificar';const x=(acc[t]??={total:0,correct:0});x.total++;if(a.correct)x.correct++;return acc;},{})).sort((a,b)=>(a[1].correct/a[1].total)-(b[1].correct/b[1].total));
+  const performanceRows = rows => rows.map(([, c]) => {
+    const [icon, bg, border] = topicVisual(c.topic);
+    return `<div class="rounded-xl p-3" style="background:${bg};border:1px solid ${border}">
+      <div class="flex justify-between gap-2 text-xs font-bold mb-2">
+        <span class="text-slate-700 min-w-0"><span aria-hidden="true">${icon}</span> ${esc(c.topic)}<span class="block mt-0.5 text-[10px] font-semibold text-slate-500">${categoryIcon(c.category)} ${esc(c.category)}</span></span>
+        <span class="tabular-nums shrink-0 ${c.rate === null ? 'text-slate-400' : c.rate >= 80 ? 'text-emerald-700' : c.rate >= 60 ? 'text-amber-700' : 'text-rose-600'}">${c.rate === null ? 'sin datos' : c.rate + '%'} · ${c.total}p</span>
+      </div>${bar(c.rate ?? 0, c.rate === null ? 'slate' : c.rate >= 80 ? 'emerald' : c.rate >= 60 ? 'amber' : 'rose')}
+    </div>`;
+  }).join('');
 
   root.innerHTML = `
     <div class="fade-in space-y-4">
@@ -486,7 +506,9 @@ export async function stats(root) {
         ${stat(sessions.length, 'Sesiones', 'brand'.replace('brand', 'slate'))}
       </div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        ${stat(`${rateOf(gen)}%`,'General','brand')}${stat(`${rateOf(spec)}%`,'Específico','amber')}${stat(mistakeCount,'Fallos pendientes','rose')}${stat(`${avgSeconds}s`,'Tiempo/pregunta','slate')}
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center"><div class="text-2xl">📘</div><div class="text-2xl md:text-3xl font-black text-blue-700">${rateOf(gen)}%</div><div class="text-[10px] font-bold uppercase text-blue-700">Bloque General</div></div>
+        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center"><div class="text-2xl">🛠️</div><div class="text-2xl md:text-3xl font-black text-emerald-700">${rateOf(spec)}%</div><div class="text-[10px] font-bold uppercase text-emerald-700">Bloque Específico</div></div>
+        ${stat(mistakeCount,'Fallos pendientes','rose')}${stat(`${avgSeconds}s`,'Tiempo/pregunta','slate')}
       </div>
 
       ${card(`
@@ -500,25 +522,16 @@ export async function stats(root) {
         <p class="text-sm text-amber-800">Tu punto más flojo es <b>${esc(worst[0][1].topic)} · ${esc(worst[0][1].category)}</b> (${worst[0][1].rate}% de acierto).</p>
       </div>` : ''}
 
-      ${card(`
-        <h3 class="font-extrabold mb-4">Rendimiento por categoría</h3>
-        <div class="space-y-3">
-          ${cats.map(([, c]) => `
-            <div>
-              <div class="flex justify-between text-xs font-bold mb-1">
-                <span class="text-slate-700 truncate pr-2">${c.scope==='specific'?'Específico':'General'} · ${esc(c.topic)} · ${esc(c.category)}</span>
-                <span class="tabular-nums shrink-0 ${c.rate === null ? 'text-slate-300' : c.rate >= 80 ? 'text-emerald-600' : c.rate >= 60 ? 'text-amber-600' : 'text-rose-500'}">${c.rate === null ? 'sin datos' : c.rate + '%'} · ${c.total}p</span>
-              </div>
-              ${bar(c.rate ?? 0, c.rate === null ? 'slate' : c.rate >= 80 ? 'emerald' : c.rate >= 60 ? 'amber' : 'rose')}
-            </div>`).join('')}
-        </div>`)}
+      ${card(`<h3 class="font-extrabold mb-4">Rendimiento por categoría</h3>
+        <section class="rounded-2xl bg-blue-50/60 border border-blue-200 p-3 md:p-4 mb-4"><h4 class="font-extrabold text-blue-900 mb-3">📘 Bloque General</h4><div class="grid md:grid-cols-2 gap-3">${performanceRows(cats.filter(([,c])=>c.scope==='general'))}</div></section>
+        <section class="rounded-2xl bg-emerald-50/60 border border-emerald-200 p-3 md:p-4"><h4 class="font-extrabold text-emerald-900 mb-3">🛠️ Bloque Específico</h4><div class="grid md:grid-cols-2 gap-3">${performanceRows(cats.filter(([,c])=>c.scope==='specific'))}</div></section>`)}
 
       ${card(`
         <h3 class="font-extrabold mb-4">Estado de tus preguntas</h3>
         ${masteryBars(s)}
         <p class="text-xs text-slate-400 mt-3">Una pregunta se considera <b>dominada</b> tras 3 aciertos seguidos con ≥80% de acierto histórico.</p>`)}
       ${byType.length?card(`<h3 class="font-extrabold mb-4">Rendimiento por tipo de pregunta</h3><div class="space-y-3">${byType.map(([name,x])=>{const r=Math.round(100*x.correct/x.total);return `<div><div class="flex justify-between text-xs font-bold mb-1"><span>${esc(name)}</span><span>${r}% · ${x.total}</span></div>${bar(r,r>=80?'emerald':r>=60?'amber':'rose')}</div>`;}).join('')}</div>`):''}
-      ${exams.length?card(`<h3 class="font-extrabold mb-4">Últimos simulacros</h3><div class="space-y-2">${exams.map(x=>`<div class="flex justify-between border-b pb-2 text-sm"><span>${new Date(x.at).toLocaleDateString('es')} · ${x.examType||'simulacro'}</span><b>${x.correct}/${x.total} · ${Math.round(100*x.correct/x.total)}%</b></div>`).join('')}</div>`):''}
+      ${exams.length?card(`<h3 class="font-extrabold mb-1">Últimos simulacros</h3><p class="text-xs text-slate-500 mb-4">Puntuación: aciertos − fallos/3. Las respuestas en blanco no penalizan.</p><div class="space-y-2">${exams.map(x=>{const incorrect=x.incorrect??Math.max(0,(x.answered??x.total)-x.correct);const grade=x.grade??Math.max(0,(x.correct-incorrect/3)*10/x.total);return `<div class="flex justify-between border-b pb-2 text-sm"><span>${new Date(x.at).toLocaleDateString('es')} · ${x.examType||'simulacro'}</span><b>${grade.toFixed(2)}/10 · ${x.correct}✓ ${incorrect}✕</b></div>`;}).join('')}</div>`):''}
     </div>`;
 }
 
@@ -672,7 +685,7 @@ export async function help(root) {
           <div><dt class="font-bold">Estudiar</dt><dd class="text-slate-600">Eliges categoría, cuántas preguntas y el modo:
             <ul class="list-disc ml-5 mt-1">
               <li><b>Práctica</b>: te corrige al instante y te explica. Para aprender.</li>
-              <li><b>Examen</b>: no te dice nada hasta el final. Para medirte.</li>
+              <li><b>Examen</b>: no te dice nada hasta el final. La nota se calcula como aciertos − fallos/3; las respuestas en blanco no penalizan.</li>
               <li><b>Repaso inteligente</b>: solo lo que hoy toca según tu memoria.</li>
               <li><b>Puntos débiles</b>: solo lo que sueles fallar.</li>
             </ul>
