@@ -99,7 +99,23 @@ addEventListener('appinstalled', () => toast('App instalada 🎉'));
 (async () => {
   await db.open();
   try {
-    const bundles = await Promise.all(['./bank/questions.json','./bank/editorial-expansion.json','./bank/editorial-code-ethics.json','./bank/editorial-drc.json','./bank/editorial-equality.json','./bank/editorial-pe2030.json','./bank/editorial-risks.json','./bank/editorial-earthworks.json','./bank/editorial-cab.json','./bank/editorial-turnouts.json','./bank/editorial-construction-safety.json','./bank/editorial-railway-works.json','./bank/editorial-maintenance.json','./bank/editorial-designation.json','./bank/editorial-compatible-works.json'].map(url =>
+    const bankFiles = [
+      'questions.json', 'editorial-expansion.json',
+      'editorial-code-ethics.json', 'editorial-code-ethics-extra.json',
+      'editorial-drc.json', 'editorial-drc-extra.json',
+      'editorial-equality.json', 'editorial-equality-extra.json',
+      'editorial-pe2030.json', 'editorial-pe2030-extra.json',
+      'editorial-risks.json', 'editorial-risks-extra.json',
+      'editorial-earthworks.json', 'editorial-earthworks-extra.json',
+      'editorial-cab.json', 'editorial-cab-extra.json',
+      'editorial-turnouts.json', 'editorial-turnouts-extra.json',
+      'editorial-construction-safety.json', 'editorial-construction-safety-extra.json',
+      'editorial-railway-works.json', 'editorial-railway-works-extra.json',
+      'editorial-maintenance.json', 'editorial-maintenance-extra.json',
+      'editorial-designation.json', 'editorial-designation-extra.json',
+      'editorial-compatible-works.json', 'editorial-compatible-works-extra.json',
+    ];
+    const bundles = await Promise.all(bankFiles.map(name => `./bank/${name}`).map(url =>
       fetch(url, { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error(`Banco no disponible (${r.status})`); return r.json(); })
     ));
     const bankVersion = bundles.map(b => b.version).join('+');

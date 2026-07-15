@@ -3,19 +3,32 @@ import { readFile } from 'node:fs/promises';
 const base = JSON.parse(await readFile(new URL('../bank/questions.json', import.meta.url), 'utf8'));
 const expansion = JSON.parse(await readFile(new URL('../bank/editorial-expansion.json', import.meta.url), 'utf8'));
 const ethics = JSON.parse(await readFile(new URL('../bank/editorial-code-ethics.json', import.meta.url), 'utf8'));
+const ethicsExtra = JSON.parse(await readFile(new URL('../bank/editorial-code-ethics-extra.json', import.meta.url), 'utf8'));
 const drc = JSON.parse(await readFile(new URL('../bank/editorial-drc.json', import.meta.url), 'utf8'));
+const drcExtra = JSON.parse(await readFile(new URL('../bank/editorial-drc-extra.json', import.meta.url), 'utf8'));
 const equality = JSON.parse(await readFile(new URL('../bank/editorial-equality.json', import.meta.url), 'utf8'));
+const equalityExtra = JSON.parse(await readFile(new URL('../bank/editorial-equality-extra.json', import.meta.url), 'utf8'));
 const pe2030 = JSON.parse(await readFile(new URL('../bank/editorial-pe2030.json', import.meta.url), 'utf8'));
+const pe2030Extra = JSON.parse(await readFile(new URL('../bank/editorial-pe2030-extra.json', import.meta.url), 'utf8'));
 const risks = JSON.parse(await readFile(new URL('../bank/editorial-risks.json', import.meta.url), 'utf8'));
+const risksExtra = JSON.parse(await readFile(new URL('../bank/editorial-risks-extra.json', import.meta.url), 'utf8'));
 const earthworks = JSON.parse(await readFile(new URL('../bank/editorial-earthworks.json', import.meta.url), 'utf8'));
+const earthworksExtra = JSON.parse(await readFile(new URL('../bank/editorial-earthworks-extra.json', import.meta.url), 'utf8'));
 const cab = JSON.parse(await readFile(new URL('../bank/editorial-cab.json', import.meta.url), 'utf8'));
+const cabExtra = JSON.parse(await readFile(new URL('../bank/editorial-cab-extra.json', import.meta.url), 'utf8'));
 const turnouts = JSON.parse(await readFile(new URL('../bank/editorial-turnouts.json', import.meta.url), 'utf8'));
+const turnoutsExtra = JSON.parse(await readFile(new URL('../bank/editorial-turnouts-extra.json', import.meta.url), 'utf8'));
 const construction = JSON.parse(await readFile(new URL('../bank/editorial-construction-safety.json', import.meta.url), 'utf8'));
+const constructionExtra = JSON.parse(await readFile(new URL('../bank/editorial-construction-safety-extra.json', import.meta.url), 'utf8'));
 const railwayWorks = JSON.parse(await readFile(new URL('../bank/editorial-railway-works.json', import.meta.url), 'utf8'));
+const railwayWorksExtra = JSON.parse(await readFile(new URL('../bank/editorial-railway-works-extra.json', import.meta.url), 'utf8'));
 const maintenance = JSON.parse(await readFile(new URL('../bank/editorial-maintenance.json', import.meta.url), 'utf8'));
+const maintenanceExtra = JSON.parse(await readFile(new URL('../bank/editorial-maintenance-extra.json', import.meta.url), 'utf8'));
 const designation = JSON.parse(await readFile(new URL('../bank/editorial-designation.json', import.meta.url), 'utf8'));
+const designationExtra = JSON.parse(await readFile(new URL('../bank/editorial-designation-extra.json', import.meta.url), 'utf8'));
 const compatibleWorks = JSON.parse(await readFile(new URL('../bank/editorial-compatible-works.json', import.meta.url), 'utf8'));
-const bank = { questions: [base, expansion, ethics, drc, equality, pe2030, risks, earthworks, cab, turnouts, construction, railwayWorks, maintenance, designation, compatibleWorks].flatMap(b => b.questions) };
+const compatibleWorksExtra = JSON.parse(await readFile(new URL('../bank/editorial-compatible-works-extra.json', import.meta.url), 'utf8'));
+const bank = { questions: [base, expansion, ethics, ethicsExtra, drc, drcExtra, equality, equalityExtra, pe2030, pe2030Extra, risks, risksExtra, earthworks, earthworksExtra, cab, cabExtra, turnouts, turnoutsExtra, construction, constructionExtra, railwayWorks, railwayWorksExtra, maintenance, maintenanceExtra, designation, designationExtra, compatibleWorks, compatibleWorksExtra].flatMap(b => b.questions) };
 const errors = [], ids = new Set(), statements = new Set();
 const required = ['id','scope','topic','category','questionType','documentId','section','enunciado','options','correctIndex','feedback','difficulty','status'];
 for (const [n,q] of bank.questions.entries()) {
@@ -38,7 +51,7 @@ if(specific<20) errors.push(`se necesitan ≥20 específicas; hay ${specific}`);
 const expectedDocs=['Código Ético y de Conducta','DRC-1-2','II Plan de Igualdad. Excepto punto 5','Plan Estratégico PE2030 Del 1 al 8','P.O.P. 02','ADIF-IT-301-001-VIA-22','ADIF-IT-301-001-VIA-26','ADIF-IT-301-001-VIA-28','RD 1627/1997','Libro 03 Capítulo 03','MIN-PE-IV-002','NAG 2-0-1.0_1E','NAR 6/16'];
 for(const doc of expectedDocs) if(!bank.questions.some(q=>q.documentId===doc)) errors.push(`sin cobertura: ${doc}`);
 const expectedTopics=['Código Ético y gestión','Declaración sobre la Red','II Plan de Igualdad','Plan Estratégico 2030','Información y gestión de riesgos','Inspección de obras de tierra','Vigilancia de vía en cabina','Inspección de aparatos de vía','Seguridad en obras de construcción','Trabajos y pruebas ferroviarias','Mantenimiento de infraestructura y vía','Designación de vías y componentes','Trabajos compatibles con la circulación'];
-for(const topic of expectedTopics){const n=bank.questions.filter(q=>q.topic===topic).length;if(n<20)errors.push(`${topic}: ${n}/20 preguntas editoriales`);}
+for(const topic of expectedTopics){const n=bank.questions.filter(q=>q.topic===topic).length;if(n!==30)errors.push(`${topic}: ${n}/30 preguntas editoriales`);}
 const categories=[...new Set(bank.questions.map(q=>q.category))];
 if(bank.questions.some(q=>q.questionType==='Completar enunciado'))errors.push('todavía hay preguntas de completar enunciado');
 if(errors.length){console.error(errors.join('\n'));process.exit(1);}
