@@ -42,6 +42,7 @@ export function normalizeQuestion(raw) {
     scope: ['general', 'specific'].includes(raw.scope) ? raw.scope : 'general',
     topic: String(raw.topic ?? raw.tema ?? raw.category ?? 'General').trim() || 'General',
     category: String(raw.category ?? raw.categoria ?? raw.tema ?? 'General').trim() || 'General',
+    questionType: String(raw.questionType ?? raw.tipoPregunta ?? 'Selección conceptual').trim() || 'Selección conceptual',
     subtopic: String(raw.subtopic ?? raw.subtema ?? '').trim(),
     documentId: String(raw.documentId ?? raw.documento ?? raw.source ?? '').trim(),
     documentRevision: String(raw.documentRevision ?? '').trim(),

@@ -7,7 +7,7 @@ const LETTERS = 'ABCDEFGH';
 
 /** @typedef {{mode:'practice'|'exam'|'review', queue:object[], i:number, answered:boolean, correct:number, startedAt:number, log:object[], selected:number|null, shuffledOpts:number[]}} Session */
 
-export function buildQueue(questions, { mode, scope = 'all', topic = 'ALL', category = 'ALL', limit, onlyWeak, state = 'all', examType, shuffleQ = true }) {
+export function buildQueue(questions, { mode, scope = 'all', topic = 'ALL', category = 'ALL', questionType = 'ALL', limit, onlyWeak, state = 'all', examType, shuffleQ = true }) {
   let pool = questions;
   if (examType) {
     const general = stratifiedSample(pool.filter(q => q.scope === 'general'), examType === 'general' ? 10 : 10);
@@ -17,6 +17,7 @@ export function buildQueue(questions, { mode, scope = 'all', topic = 'ALL', cate
   if (scope !== 'all') pool = pool.filter(q => q.scope === scope);
   if (topic && topic !== 'ALL') pool = pool.filter(q => q.topic === topic);
   if (category && category !== 'ALL') pool = pool.filter(q => q.category === category);
+  if (questionType && questionType !== 'ALL') pool = pool.filter(q => q.questionType === questionType);
   if (mode === 'review') pool = pool.filter(q => isDue(q));
   if (onlyWeak) pool = pool.filter(q => mastery(q).key === 'weak');
   if (state === 'new') pool = pool.filter(q => !q.hist?.seen);
@@ -68,6 +69,7 @@ export function startSession(root, queue, opts, onDone) {
               <span class="px-2 py-0.5 rounded-full bg-brand-100 text-brand-700">${q.scope === 'specific' ? 'Específico' : 'General'} · ${esc(q.category)}</span>
               <span class="px-2 py-0.5 rounded-full bg-${m.color}-100 text-${m.color}-700">${m.label}</span>
               <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">${modeLabel(s.mode)}</span>
+              <span class="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">${esc(q.questionType||'Test')}</span>
               <button data-bookmark class="px-2 py-0.5 rounded-full bg-amber-50" title="Marcar para repasar">${q.bookmarked?'🔖':'☆'}</button>
             </span>
           </div>
@@ -165,7 +167,7 @@ export function startSession(root, queue, opts, onDone) {
     const updated = applyResult(q, ok, grade);
     s.queue[s.i] = updated;
     await db.put('questions', updated);
-    await db.put('attempts', { questionId: q.id, scope:q.scope, topic:q.topic, category: q.category, selectedIndex:s.selected,
+    await db.put('attempts', { questionId: q.id, scope:q.scope, topic:q.topic, category: q.category, questionType:q.questionType, selectedIndex:s.selected,
       correctIndex:q.correctIndex, correct: ok, grade, at: Date.now(), elapsedMs:Date.now()-s.questionStartedAt, mode: s.mode });
     s.log.push({ questionId: q.id, correct: ok, selectedIndex:s.selected, correctIndex:q.correctIndex });
   }
@@ -236,7 +238,7 @@ export function startExamSession(root, queue, opts, onDone) {
       const q=queue[n], selected=answers[n], ok=selected===q.correctIndex;
       if(ok) correct++;
       const updated=applyResult(q,ok,ok?2:0); queue[n]=updated; await db.put('questions',updated);
-      await db.put('attempts',{questionId:q.id,scope:q.scope,topic:q.topic,category:q.category,selectedIndex:selected,correctIndex:q.correctIndex,correct:ok,grade:ok?2:0,at:Date.now(),mode:'exam'});
+      await db.put('attempts',{questionId:q.id,scope:q.scope,topic:q.topic,category:q.category,questionType:q.questionType,selectedIndex:selected,correctIndex:q.correctIndex,correct:ok,grade:ok?2:0,at:Date.now(),mode:'exam'});
       log.push({questionId:q.id,correct:ok,selectedIndex:selected,correctIndex:q.correctIndex});
     }
     await db.put('sessions',{mode:'exam',examType:opts.examType,at:startedAt,durationMs:Date.now()-startedAt,total:queue.length,answered:queue.length-pending,correct,aborted:false,log});

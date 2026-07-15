@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 
 const bank = JSON.parse(await readFile(new URL('../bank/questions.json', import.meta.url), 'utf8'));
 const errors = [], ids = new Set(), statements = new Set();
-const required = ['id','scope','topic','category','documentId','section','enunciado','options','correctIndex','feedback','difficulty','status'];
+const required = ['id','scope','topic','category','questionType','documentId','section','enunciado','options','correctIndex','feedback','difficulty','status'];
 for (const [n,q] of bank.questions.entries()) {
   for (const k of required) if (q[k] === undefined || q[k] === '') errors.push(`#${n+1}: falta ${k}`);
   if (ids.has(q.id)) errors.push(`id duplicado: ${q.id}`); ids.add(q.id);
@@ -19,6 +19,15 @@ if(specific<20) errors.push(`se necesitan ≥20 específicas; hay ${specific}`);
 const expectedDocs=['Código Ético y de Conducta','DRC-1-2','II Plan de Igualdad. Excepto punto 5','Plan Estratégico PE2030 Del 1 al 8','P.O.P. 02','ADIF-IT-301-001-VIA-22','ADIF-IT-301-001-VIA-26','ADIF-IT-301-001-VIA-28','RD 1627/1997','Libro 03 Capítulo 03','MIN-PE-IV-002','NAG 2-0-1.0_1E','NAR 6/16'];
 for(const doc of expectedDocs) if(!bank.questions.some(q=>q.documentId===doc)) errors.push(`sin cobertura: ${doc}`);
 const expectedTopics=['Código Ético y gestión','Declaración sobre la Red','II Plan de Igualdad','Plan Estratégico 2030','Información y gestión de riesgos','Inspección de obras de tierra','Vigilancia de vía en cabina','Inspección de aparatos de vía','Seguridad en obras de construcción','Trabajos y pruebas ferroviarias','Mantenimiento de infraestructura y vía','Designación de vías y componentes','Trabajos compatibles con la circulación'];
-for(const topic of expectedTopics){const n=bank.questions.filter(q=>q.topic===topic).length;if(n<50)errors.push(`${topic}: ${n}/50 preguntas`);}
+const extraTypes=['Selección conceptual','Relación de conceptos','Caso aplicado','Correspondencia normativa','Excepción o afirmación incorrecta'];
+for(const topic of expectedTopics){
+  const rows=bank.questions.filter(q=>q.topic===topic),n=rows.length;if(n<250)errors.push(`${topic}: ${n}/250 preguntas`);
+  for(const type of extraTypes){const c=rows.filter(q=>q.questionType===type).length;if(c<50)errors.push(`${topic}/${type}: ${c}/50`);}
+}
+const categories=[...new Set(bank.questions.map(q=>q.category))];
+if(bank.questions.some(q=>q.questionType==='Completar enunciado'))errors.push('todavía hay preguntas de completar enunciado');
+if(categories.length<7)errors.push(`solo ${categories.length} categorías temáticas`);
+const maxCategory=Math.max(...categories.map(c=>bank.questions.filter(q=>q.category===c).length));
+if(maxCategory>bank.questions.length*.4)errors.push(`una categoría concentra ${maxCategory}/${bank.questions.length}`);
 if(errors.length){console.error(errors.join('\n'));process.exit(1);}
-console.log(`Banco válido: ${bank.questions.length} preguntas (${general} generales, ${specific} específicas), ${expectedTopics.length} temas con ≥50 y ${expectedDocs.length} documentos cubiertos.`);
+console.log(`Banco válido: ${bank.questions.length} preguntas (${general} generales, ${specific} específicas), ${expectedTopics.length} temas con ≥250, 5 tipos equilibrados, sin completar palabras y ${categories.length} categorías temáticas.`);
