@@ -102,12 +102,7 @@ export async function study(root, ctx) {
   const qs = await db.getAll('questions');
   if (!qs.length) { root.innerHTML = empty('Sin preguntas', 'Importa o crea preguntas antes de estudiar.', btn('Ir al banco', 'data-nav="bank"')); return; }
 
-  const topics = [...new Set(qs.map(q => q.topic))].sort();
-  const cats = [...new Set(qs.map(q => q.category))].sort();
-  const types = [...new Set(qs.map(q => q.questionType).filter(Boolean))].sort();
   const prefs = await db.getMeta('studyPrefs', { scope: 'all', topic:'ALL', category: 'ALL', questionType:'ALL', limit: 20, shuffleOptions: true });
-  const dueCount = qs.filter(isDue).length;
-  const weakCount = qs.filter(q => mastery(q).key === 'weak').length;
 
   root.innerHTML = `
     <div class="fade-in max-w-2xl mx-auto space-y-4">
@@ -116,30 +111,27 @@ export async function study(root, ctx) {
       ${card(`
         <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Bloque</label>
         <select id="scope" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-semibold bg-white">
-          <option value="all">🗂️ General + Específico (${qs.length})</option>
-          <option value="general" ${prefs.scope==='general'?'selected':''}>📘 General (${qs.filter(q=>q.scope==='general').length})</option>
-          <option value="specific" ${prefs.scope==='specific'?'selected':''}>🛠️ Específico (${qs.filter(q=>q.scope==='specific').length})</option>
+          <option value="all">🗂️ General + Específico</option>
         </select>
         <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mt-5 mb-2">Tema</label>
         <select id="topic" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-semibold bg-white">
           <option value="ALL">Todos los temas</option>
-          ${topics.map(c => `<option value="${esc(c)}" ${prefs.topic === c ? 'selected' : ''}>${topicVisual(c)[0]} ${esc(c)} (${qs.filter(q => q.topic === c).length})</option>`).join('')}
         </select>
-        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Categoría</label>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mt-5 mb-2">Categoría</label>
         <select id="cat" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-semibold bg-white focus:border-brand-500 focus:ring-0">
-          <option value="ALL">Todas las categorías (${qs.length})</option>
-          ${cats.map(c => `<option value="${esc(c)}" ${prefs.category === c ? 'selected' : ''}>${categoryIcon(c)} ${esc(c)} (${qs.filter(q => q.category === c).length})</option>`).join('')}
+          <option value="ALL">Todas las categorías</option>
         </select>
 
         <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mt-5 mb-2">Tipo de pregunta</label>
         <select id="qtype" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-semibold bg-white">
-          <option value="ALL">Todos los tipos (${qs.length})</option>
-          ${types.map(t => `<option value="${esc(t)}" ${prefs.questionType === t ? 'selected' : ''}>${esc(t)} (${qs.filter(q => q.questionType === t).length})</option>`).join('')}
+          <option value="ALL">Todos los tipos</option>
         </select>
 
+        <div id="filterSummary" class="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900" aria-live="polite"><b id="availableCount">${qs.length}</b> preguntas disponibles con estos filtros.</div>
+
         <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mt-5 mb-2">Nº de preguntas: <span id="limitVal" class="text-brand-600">${prefs.limit}</span></label>
-        <input id="limit" type="range" min="5" max="100" step="5" value="${prefs.limit}" class="w-full accent-indigo-600">
-        <div class="flex justify-between text-[10px] font-bold text-slate-400"><span>5</span><span>100</span></div>
+        <input id="limit" type="range" min="1" max="100" step="1" value="${prefs.limit}" class="w-full accent-indigo-600">
+        <div class="flex justify-between text-[10px] font-bold text-slate-400"><span>1</span><span id="limitMax">100</span></div>
 
         <label class="flex items-center gap-3 mt-5 cursor-pointer">
           <input id="shuf" type="checkbox" ${prefs.shuffleOptions ? 'checked' : ''} class="w-5 h-5 rounded accent-indigo-600">
@@ -152,8 +144,8 @@ export async function study(root, ctx) {
         ${modeCard('new', '✨', 'Preguntas nuevas', 'Recorre primero lo que aún no has visto.', 'brand')}
         ${modeCard('mistakes', '🔁', 'Fallos pendientes', 'Recupera errores hasta consolidarlos con dos aciertos.', 'rose', !qs.some(q => q.mistakeDebt > 0))}
         ${modeCard('bookmarked', '🔖', 'Marcadas', 'Practica las preguntas que hayas guardado.', 'amber', !qs.some(q => q.bookmarked))}
-        ${modeCard('review', '🧠', `Repaso inteligente${dueCount ? ` · ${dueCount} pendientes` : ''}`, 'Solo lo que toca repasar hoy según tu memoria.', 'emerald', !dueCount)}
-        ${modeCard('weak', '🔥', `Puntos débiles${weakCount ? ` · ${weakCount}` : ''}`, 'Solo las preguntas que sueles fallar.', 'rose', !weakCount)}
+        ${modeCard('review', '🧠', 'Repaso inteligente', 'Solo lo que toca repasar hoy según tu memoria.', 'emerald')}
+        ${modeCard('weak', '🔥', 'Puntos débiles', 'Solo las preguntas que sueles fallar.', 'rose')}
       </div>
       <h2 class="text-xl font-extrabold pt-4">Simulacros</h2>
       <div class="grid md:grid-cols-3 gap-3">
@@ -166,13 +158,65 @@ export async function study(root, ctx) {
   const $ = (id) => root.querySelector(id);
   $('#limit').oninput = e => $('#limitVal').textContent = e.target.value;
 
+  const selection = {
+    scope: ['all','general','specific'].includes(prefs.scope) ? prefs.scope : 'all',
+    topic: prefs.topic || 'ALL', category: prefs.category || 'ALL', questionType: prefs.questionType || 'ALL',
+  };
+  const counts = (items, key) => [...items.reduce((map, q) => {
+    const value = q[key];
+    if (value) map.set(value, (map.get(value) || 0) + 1);
+    return map;
+  }, new Map())].sort(([a],[b]) => a.localeCompare(b, 'es'));
+  const setOptions = (el, allLabel, rows, selected, icon = () => '') => {
+    el.innerHTML = `<option value="ALL">${allLabel} (${rows.reduce((n,[,count]) => n + count, 0)})</option>` + rows.map(([value,count]) => `<option value="${esc(value)}">${icon(value)}${esc(value)} (${count})</option>`).join('');
+    el.value = rows.some(([value]) => value === selected) ? selected : 'ALL';
+    return el.value;
+  };
+  const refreshFilters = () => {
+    const scoped = selection.scope === 'all' ? qs : qs.filter(q => q.scope === selection.scope);
+    selection.topic = setOptions($('#topic'), 'Todos los temas', counts(scoped, 'topic'), selection.topic, value => `${topicVisual(value)[0]} `);
+    const themed = selection.topic === 'ALL' ? scoped : scoped.filter(q => q.topic === selection.topic);
+    selection.category = setOptions($('#cat'), 'Todas las categorías', counts(themed, 'category'), selection.category, value => `${categoryIcon(value)} `);
+    const categorised = selection.category === 'ALL' ? themed : themed.filter(q => q.category === selection.category);
+    selection.questionType = setOptions($('#qtype'), 'Todos los tipos', counts(categorised, 'questionType'), selection.questionType);
+    const available = selection.questionType === 'ALL' ? categorised : categorised.filter(q => q.questionType === selection.questionType);
+    const max = Math.max(1, Math.min(100, available.length));
+    $('#availableCount').textContent = available.length;
+    $('#filterSummary').className = `mt-4 rounded-xl border px-4 py-3 text-sm ${selection.scope === 'specific' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-blue-200 bg-blue-50 text-blue-900'}`;
+    $('#limit').max = max; $('#limitMax').textContent = max;
+    if (+$('#limit').value > max) $('#limit').value = max;
+    if (+$('#limit').value < 1) $('#limit').value = 1;
+    $('#limitVal').textContent = $('#limit').value;
+    const modeCounts = {
+      practice: available.length,
+      new: available.filter(q => !q.hist?.seen).length,
+      mistakes: available.filter(q => (q.mistakeDebt ?? 0) > 0).length,
+      bookmarked: available.filter(q => q.bookmarked).length,
+      review: available.filter(isDue).length,
+      weak: available.filter(q => mastery(q).key === 'weak').length,
+    };
+    Object.entries(modeCounts).forEach(([mode, count]) => {
+      const button = root.querySelector(`[data-mode="${mode}"]`);
+      const badge = button?.querySelector('[data-mode-count]');
+      if (badge) badge.textContent = ` · ${count}`;
+      if (button) button.disabled = count === 0;
+    });
+  };
+  $('#scope').innerHTML = `<option value="all">🗂️ General + Específico (${qs.length})</option><option value="general">📘 General (${qs.filter(q=>q.scope==='general').length})</option><option value="specific">🛠️ Específico (${qs.filter(q=>q.scope==='specific').length})</option>`;
+  $('#scope').value = selection.scope;
+  $('#scope').onchange = e => { selection.scope = e.target.value; selection.topic = selection.category = selection.questionType = 'ALL'; refreshFilters(); };
+  $('#topic').onchange = e => { selection.topic = e.target.value; selection.category = selection.questionType = 'ALL'; refreshFilters(); };
+  $('#cat').onchange = e => { selection.category = e.target.value; selection.questionType = 'ALL'; refreshFilters(); };
+  $('#qtype').onchange = e => { selection.questionType = e.target.value; refreshFilters(); };
+  refreshFilters();
+
   const launch = async (mode) => {
     const isExam = mode.startsWith('exam-');
     const cfg = {
-      scope: $('#scope').value,
-      topic: $('#topic').value,
-      category: $('#cat').value,
-      questionType: $('#qtype').value,
+      scope: selection.scope,
+      topic: selection.topic,
+      category: selection.category,
+      questionType: selection.questionType,
       limit: isExam ? null : +$('#limit').value,
       shuffleOptions: $('#shuf').checked,
       mode: isExam ? 'exam' : (['weak','new','mistakes','bookmarked'].includes(mode) ? 'practice' : mode),
@@ -192,7 +236,7 @@ const modeCard = (mode, icon, title, desc, color, disabled = false) => `
   <button data-mode="${mode}" ${disabled ? 'disabled' : ''} class="text-left bg-white border-2 border-slate-200 hover:border-${color}-500 rounded-2xl p-5 flex items-center gap-4 transition active:scale-[.99] disabled:opacity-40 disabled:pointer-events-none">
     <span class="text-3xl">${icon}</span>
     <span class="flex-1">
-      <span class="block font-extrabold">${title}</span>
+      <span class="block font-extrabold">${title}<span data-mode-count></span></span>
       <span class="block text-sm text-slate-500 mt-0.5">${desc}</span>
     </span>
     <span class="text-slate-300 text-xl">›</span>
@@ -485,15 +529,41 @@ export async function stats(root) {
   const avgSeconds = attempts.filter(a=>a.elapsedMs).length ? Math.round(attempts.filter(a=>a.elapsedMs).reduce((n,a)=>n+a.elapsedMs,0)/attempts.filter(a=>a.elapsedMs).length/1000) : 0;
   const qById = new Map(qs.map(q=>[q.id,q]));
   const byType = Object.entries(attempts.reduce((acc,a)=>{const t=a.questionType||qById.get(a.questionId)?.questionType||'Sin clasificar';const x=(acc[t]??={total:0,correct:0});x.total++;if(a.correct)x.correct++;return acc;},{})).sort((a,b)=>(a[1].correct/a[1].total)-(b[1].correct/b[1].total));
-  const performanceRows = rows => rows.map(([, c]) => {
-    const [icon, bg, border] = topicVisual(c.topic);
-    return `<div class="rounded-xl p-3" style="background:${bg};border:1px solid ${border}">
-      <div class="flex justify-between gap-2 text-xs font-bold mb-2">
-        <span class="text-slate-700 min-w-0"><span aria-hidden="true">${icon}</span> ${esc(c.topic)}<span class="block mt-0.5 text-[10px] font-semibold text-slate-500">${categoryIcon(c.category)} ${esc(c.category)}</span></span>
-        <span class="tabular-nums shrink-0 ${c.rate === null ? 'text-slate-400' : c.rate >= 80 ? 'text-emerald-700' : c.rate >= 60 ? 'text-amber-700' : 'text-rose-600'}">${c.rate === null ? 'sin datos' : c.rate + '%'} · ${c.total}p</span>
-      </div>${bar(c.rate ?? 0, c.rate === null ? 'slate' : c.rate >= 80 ? 'emerald' : c.rate >= 60 ? 'amber' : 'rose')}
-    </div>`;
-  }).join('');
+  const rateColor = rate => rate === null ? 'slate' : rate >= 80 ? 'emerald' : rate >= 60 ? 'amber' : 'rose';
+  const rateText = rate => rate === null ? 'text-slate-400' : rate >= 80 ? 'text-emerald-700' : rate >= 60 ? 'text-amber-700' : 'text-rose-600';
+  const topicAccordions = scope => {
+    const grouped = new Map();
+    cats.filter(([,c]) => c.scope === scope).forEach(row => {
+      const topic = row[1].topic;
+      if (!grouped.has(topic)) grouped.set(topic, []);
+      grouped.get(topic).push(row);
+    });
+    return [...grouped.entries()].sort(([a],[b]) => a.localeCompare(b, 'es')).map(([topic, rows]) => {
+      const [icon, bg, border] = topicVisual(topic);
+      const summary = rows.reduce((acc, [,c]) => ({
+        total: acc.total + c.total, seen: acc.seen + c.seen,
+        correct: acc.correct + c.correct, incorrect: acc.incorrect + c.incorrect,
+      }), { total:0, seen:0, correct:0, incorrect:0 });
+      const topicRate = summary.seen ? Math.round(100 * summary.correct / summary.seen) : null;
+      return `<details data-topic-progress class="group rounded-2xl overflow-hidden shadow-sm" style="background:${bg};border:1px solid ${border}">
+        <summary class="list-none cursor-pointer select-none p-3 md:p-4 flex items-center gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-inset">
+          <span class="text-2xl shrink-0" aria-hidden="true">${icon}</span>
+          <span class="flex-1 min-w-0"><span class="block font-extrabold text-sm md:text-base text-slate-800">${esc(topic)}</span><span class="block text-[10px] md:text-xs font-semibold text-slate-500 mt-0.5">${rows.length} subsecciones · ${summary.total} preguntas · ${summary.seen} ${summary.seen === 1 ? 'respuesta' : 'respuestas'}</span></span>
+          <span class="text-right shrink-0"><span class="block font-black tabular-nums ${rateText(topicRate)}">${topicRate === null ? '—' : topicRate + '%'}</span><span class="block text-[10px] text-slate-500">global</span></span>
+          <span class="text-slate-500 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="px-3 pb-3 md:px-4 md:pb-4">
+          ${bar(topicRate ?? 0, rateColor(topicRate))}
+          <div class="mt-3 rounded-xl bg-white/75 border border-white overflow-hidden">
+            ${rows.sort(([,a],[,b]) => a.category.localeCompare(b.category, 'es')).map(([,c]) => `<div class="p-3 border-b border-slate-200/70 last:border-0">
+              <div class="flex justify-between gap-3 text-xs font-bold mb-1.5"><span class="text-slate-700">${categoryIcon(c.category)} ${esc(c.category)}</span><span class="tabular-nums shrink-0 ${rateText(c.rate)}">${c.rate === null ? 'sin datos' : c.rate + '%'} · ${c.total} preg.</span></div>
+              ${bar(c.rate ?? 0, rateColor(c.rate))}
+            </div>`).join('')}
+          </div>
+        </div>
+      </details>`;
+    }).join('');
+  };
 
   root.innerHTML = `
     <div class="fade-in space-y-4">
@@ -522,9 +592,9 @@ export async function stats(root) {
         <p class="text-sm text-amber-800">Tu punto más flojo es <b>${esc(worst[0][1].topic)} · ${esc(worst[0][1].category)}</b> (${worst[0][1].rate}% de acierto).</p>
       </div>` : ''}
 
-      ${card(`<h3 class="font-extrabold mb-4">Rendimiento por categoría</h3>
-        <section class="rounded-2xl bg-blue-50/60 border border-blue-200 p-3 md:p-4 mb-4"><h4 class="font-extrabold text-blue-900 mb-3">📘 Bloque General</h4><div class="grid md:grid-cols-2 gap-3">${performanceRows(cats.filter(([,c])=>c.scope==='general'))}</div></section>
-        <section class="rounded-2xl bg-emerald-50/60 border border-emerald-200 p-3 md:p-4"><h4 class="font-extrabold text-emerald-900 mb-3">🛠️ Bloque Específico</h4><div class="grid md:grid-cols-2 gap-3">${performanceRows(cats.filter(([,c])=>c.scope==='specific'))}</div></section>`)}
+      ${card(`<h3 class="font-extrabold mb-1">Progreso por tema</h3><p class="text-xs text-slate-500 mb-4">Pulsa un tema para consultar sus subsecciones. Solo se mantiene uno desplegado cada vez.</p>
+        <section class="rounded-2xl bg-blue-50/60 border border-blue-200 p-3 md:p-4 mb-4"><h4 class="font-extrabold text-blue-900 mb-3">📘 Bloque General</h4><div class="space-y-2">${topicAccordions('general')}</div></section>
+        <section class="rounded-2xl bg-emerald-50/60 border border-emerald-200 p-3 md:p-4"><h4 class="font-extrabold text-emerald-900 mb-3">🛠️ Bloque Específico</h4><div class="space-y-2">${topicAccordions('specific')}</div></section>`)}
 
       ${card(`
         <h3 class="font-extrabold mb-4">Estado de tus preguntas</h3>
@@ -533,6 +603,10 @@ export async function stats(root) {
       ${byType.length?card(`<h3 class="font-extrabold mb-4">Rendimiento por tipo de pregunta</h3><div class="space-y-3">${byType.map(([name,x])=>{const r=Math.round(100*x.correct/x.total);return `<div><div class="flex justify-between text-xs font-bold mb-1"><span>${esc(name)}</span><span>${r}% · ${x.total}</span></div>${bar(r,r>=80?'emerald':r>=60?'amber':'rose')}</div>`;}).join('')}</div>`):''}
       ${exams.length?card(`<h3 class="font-extrabold mb-1">Últimos simulacros</h3><p class="text-xs text-slate-500 mb-4">Puntuación: aciertos − fallos/3. Las respuestas en blanco no penalizan.</p><div class="space-y-2">${exams.map(x=>{const incorrect=x.incorrect??Math.max(0,(x.answered??x.total)-x.correct);const grade=x.grade??Math.max(0,(x.correct-incorrect/3)*10/x.total);return `<div class="flex justify-between border-b pb-2 text-sm"><span>${new Date(x.at).toLocaleDateString('es')} · ${x.examType||'simulacro'}</span><b>${grade.toFixed(2)}/10 · ${x.correct}✓ ${incorrect}✕</b></div>`;}).join('')}</div>`):''}
     </div>`;
+  const topicDetails = [...root.querySelectorAll('[data-topic-progress]')];
+  topicDetails.forEach(detail => detail.addEventListener('toggle', () => {
+    if (detail.open) topicDetails.forEach(other => { if (other !== detail) other.open = false; });
+  }));
 }
 
 // ---------------------------------------------------------------- PROMPT GENERATOR
