@@ -76,6 +76,11 @@ export async function replaceBundledQuestions(items, bankVersion) {
       mistakeDebt: old.mistakeDebt ?? 0, createdAt: old.createdAt } : q;
   });
   await putMany('questions', merged);
+  const currentIds = new Set(items.map(q => q.id));
+  const obsolete = existing.filter(q => !currentIds.has(q.id) && (
+    q.bundled || q.id?.startsWith('auto-') || q.id?.startsWith('type-') || q.tags?.includes('generada')
+  ));
+  for (const q of obsolete) await del('questions', q.id);
   await setMeta('bankVersion', bankVersion);
   return merged.length;
 }

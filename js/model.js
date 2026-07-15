@@ -50,6 +50,7 @@ export function normalizeQuestion(raw) {
     page: raw.page == null ? null : Number(raw.page),
     sourceQuote: String(raw.sourceQuote ?? '').trim(),
     status: ['draft', 'reviewed', 'verified'].includes(raw.status) ? raw.status : 'draft',
+    bundled: Boolean(raw.bundled),
     difficulty: clamp(Number(raw.difficulty ?? raw.dificultad ?? 2), 1, 3),
     tags: Array.isArray(raw.tags) ? raw.tags.map(String) : [],
     source: String(raw.source ?? raw.fuente ?? '').trim(),

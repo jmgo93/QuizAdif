@@ -8,6 +8,31 @@ import { normalizeQuestion } from './model.js';
 const root = document.getElementById('app');
 const ROUTES = { home: V.home, study: V.study, bank: V.bank, stats: V.stats, prompt: V.prompt, help: V.help };
 
+// Tamaño de letra global, persistente y disponible antes de abrir IndexedDB.
+const FONT_SCALES = [0.9, 1, 1.15, 1.3];
+let fontScale = Number(localStorage.getItem('quizadifFontScale')) || 1;
+if (!FONT_SCALES.includes(fontScale)) fontScale = 1;
+const applyFontScale = () => {
+  document.documentElement.style.fontSize = `${16 * fontScale}px`;
+  const b = document.getElementById('btnFontSize');
+  if (b) { b.textContent = `A ${Math.round(fontScale * 100)}%`; b.setAttribute('aria-label', `Tamaño de letra ${Math.round(fontScale * 100)} por ciento. Pulsar para cambiar`); }
+};
+document.getElementById('btnFontSize').onclick = () => {
+  fontScale = FONT_SCALES[(FONT_SCALES.indexOf(fontScale) + 1) % FONT_SCALES.length];
+  localStorage.setItem('quizadifFontScale', String(fontScale));
+  applyFontScale();
+};
+applyFontScale();
+
+const legalDialog = document.getElementById('legalDialog');
+document.querySelectorAll('[data-legal]').forEach(b => b.onclick = () => legalDialog.showModal());
+document.querySelectorAll('[data-legal-close]').forEach(b => b.onclick = () => legalDialog.close());
+document.querySelector('[data-legal-accept]').onclick = () => {
+  localStorage.setItem('quizadifDisclaimerSeen', '1');
+  legalDialog.close();
+};
+legalDialog.addEventListener('click', e => { if (e.target === legalDialog) legalDialog.close(); });
+
 const ctx = {
   params: {},
   go(route, params = {}) {
@@ -74,16 +99,18 @@ addEventListener('appinstalled', () => toast('App instalada 🎉'));
 (async () => {
   await db.open();
   try {
-    const bank = await fetch('./bank/questions.json', { cache: 'no-cache' }).then(r => {
-      if (!r.ok) throw new Error(`Banco no disponible (${r.status})`); return r.json();
-    });
+    const bundles = await Promise.all(['./bank/questions.json','./bank/editorial-expansion.json','./bank/editorial-code-ethics.json','./bank/editorial-drc.json','./bank/editorial-equality.json','./bank/editorial-pe2030.json','./bank/editorial-risks.json','./bank/editorial-earthworks.json','./bank/editorial-cab.json','./bank/editorial-turnouts.json','./bank/editorial-construction-safety.json','./bank/editorial-railway-works.json','./bank/editorial-maintenance.json','./bank/editorial-designation.json','./bank/editorial-compatible-works.json'].map(url =>
+      fetch(url, { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error(`Banco no disponible (${r.status})`); return r.json(); })
+    ));
+    const bankVersion = bundles.map(b => b.version).join('+');
     const current = await db.getMeta('bankVersion');
-    if (current !== bank.version) {
-      const questions = bank.questions.map(normalizeQuestion).filter(Boolean);
-      await db.replaceBundledQuestions(questions, bank.version);
+    if (current !== bankVersion) {
+      const questions = bundles.flatMap(b => b.questions).map(q => normalizeQuestion({ ...q, bundled: true })).filter(Boolean);
+      await db.replaceBundledQuestions(questions, bankVersion);
     }
   } catch (e) { console.warn('No se pudo actualizar el banco integrado', e); }
   if (await db.requestPersistence()) document.getElementById('syncDot').textContent = '● Guardado local';
+  if (!localStorage.getItem('quizadifDisclaimerSeen')) legalDialog.showModal();
   paint(ROUTES[currentRoute()] ? currentRoute() : 'home');
 
   if ('serviceWorker' in navigator) {
