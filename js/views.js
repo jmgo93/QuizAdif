@@ -103,7 +103,8 @@ export async function study(root, ctx) {
 
   const topics = [...new Set(qs.map(q => q.topic))].sort();
   const cats = [...new Set(qs.map(q => q.category))].sort();
-  const prefs = await db.getMeta('studyPrefs', { scope: 'all', topic:'ALL', category: 'ALL', limit: 20, shuffleOptions: true });
+  const types = [...new Set(qs.map(q => q.questionType).filter(Boolean))].sort();
+  const prefs = await db.getMeta('studyPrefs', { scope: 'all', topic:'ALL', category: 'ALL', questionType:'ALL', limit: 20, shuffleOptions: true });
   const dueCount = qs.filter(isDue).length;
   const weakCount = qs.filter(q => mastery(q).key === 'weak').length;
 
@@ -127,6 +128,12 @@ export async function study(root, ctx) {
         <select id="cat" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-semibold bg-white focus:border-brand-500 focus:ring-0">
           <option value="ALL">Todas las categorías (${qs.length})</option>
           ${cats.map(c => `<option value="${esc(c)}" ${prefs.category === c ? 'selected' : ''}>${esc(c)} (${qs.filter(q => q.category === c).length})</option>`).join('')}
+        </select>
+
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mt-5 mb-2">Tipo de pregunta</label>
+        <select id="qtype" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-semibold bg-white">
+          <option value="ALL">Todos los tipos (${qs.length})</option>
+          ${types.map(t => `<option value="${esc(t)}" ${prefs.questionType === t ? 'selected' : ''}>${esc(t)} (${qs.filter(q => q.questionType === t).length})</option>`).join('')}
         </select>
 
         <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mt-5 mb-2">Nº de preguntas: <span id="limitVal" class="text-brand-600">${prefs.limit}</span></label>
@@ -164,6 +171,7 @@ export async function study(root, ctx) {
       scope: $('#scope').value,
       topic: $('#topic').value,
       category: $('#cat').value,
+      questionType: $('#qtype').value,
       limit: isExam ? null : +$('#limit').value,
       shuffleOptions: $('#shuf').checked,
       mode: isExam ? 'exam' : (['weak','new','mistakes','bookmarked'].includes(mode) ? 'practice' : mode),
@@ -171,7 +179,7 @@ export async function study(root, ctx) {
       state: ['new','mistakes','bookmarked'].includes(mode) ? mode : 'all',
       examType: isExam ? mode.replace('exam-','') : null,
     };
-    await db.setMeta('studyPrefs', { scope:cfg.scope, topic:cfg.topic, category: cfg.category, limit: +$('#limit').value, shuffleOptions: cfg.shuffleOptions });
+    await db.setMeta('studyPrefs', { scope:cfg.scope, topic:cfg.topic, category: cfg.category, questionType:cfg.questionType, limit: +$('#limit').value, shuffleOptions: cfg.shuffleOptions });
     ctx.launch(cfg);
   };
   root.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => launch(b.dataset.mode));
@@ -457,6 +465,8 @@ export async function stats(root) {
   const exams = sessions.filter(x=>x.mode==='exam').sort((a,b)=>b.at-a.at).slice(0,10);
   const mistakeCount = qs.filter(q=>(q.mistakeDebt??0)>0).length;
   const avgSeconds = attempts.filter(a=>a.elapsedMs).length ? Math.round(attempts.filter(a=>a.elapsedMs).reduce((n,a)=>n+a.elapsedMs,0)/attempts.filter(a=>a.elapsedMs).length/1000) : 0;
+  const qById = new Map(qs.map(q=>[q.id,q]));
+  const byType = Object.entries(attempts.reduce((acc,a)=>{const t=a.questionType||qById.get(a.questionId)?.questionType||'Sin clasificar';const x=(acc[t]??={total:0,correct:0});x.total++;if(a.correct)x.correct++;return acc;},{})).sort((a,b)=>(a[1].correct/a[1].total)-(b[1].correct/b[1].total));
 
   root.innerHTML = `
     <div class="fade-in space-y-4">
@@ -500,6 +510,7 @@ export async function stats(root) {
         <h3 class="font-extrabold mb-4">Estado de tus preguntas</h3>
         ${masteryBars(s)}
         <p class="text-xs text-slate-400 mt-3">Una pregunta se considera <b>dominada</b> tras 3 aciertos seguidos con ≥80% de acierto histórico.</p>`)}
+      ${byType.length?card(`<h3 class="font-extrabold mb-4">Rendimiento por tipo de pregunta</h3><div class="space-y-3">${byType.map(([name,x])=>{const r=Math.round(100*x.correct/x.total);return `<div><div class="flex justify-between text-xs font-bold mb-1"><span>${esc(name)}</span><span>${r}% · ${x.total}</span></div>${bar(r,r>=80?'emerald':r>=60?'amber':'rose')}</div>`;}).join('')}</div>`):''}
       ${exams.length?card(`<h3 class="font-extrabold mb-4">Últimos simulacros</h3><div class="space-y-2">${exams.map(x=>`<div class="flex justify-between border-b pb-2 text-sm"><span>${new Date(x.at).toLocaleDateString('es')} · ${x.examType||'simulacro'}</span><b>${x.correct}/${x.total} · ${Math.round(100*x.correct/x.total)}%</b></div>`).join('')}</div>`):''}
     </div>`;
 }

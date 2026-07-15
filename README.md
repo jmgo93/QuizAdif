@@ -4,7 +4,9 @@ PWA para preparar exámenes tipo test de ADIF mediante práctica, simulacros, re
 
 El banco integrado se organiza en **General** y **Específico**, con jerarquía por tema, categoría, subtema y referencia documental. Incluye simulacros General (10), Específico (20) y Completo (10 + 20).
 
-El banco actual contiene **650 preguntas**: 50 para cada uno de los 13 temas documentales, 250 del bloque General y 400 del Específico. Las preguntas generadas desde texto conservan el fragmento fuente y se marcan como `draft` hasta su revisión manual; las revisadas mantienen los estados `reviewed` o `verified`.
+El banco actual contiene **3.280 preguntas**: al menos 250 para cada uno de los 13 temas documentales, 1.260 del bloque General y 2.020 del Específico. No contiene ejercicios de completar palabras. Los cinco formatos son selección conceptual, relación de conceptos, caso aplicado, correspondencia normativa y excepción/afirmación incorrecta.
+
+Las preguntas se distribuyen además entre siete categorías temáticas: objeto y alcance; definiciones; responsabilidades; seguridad; documentación; datos, límites y plazos; y procedimientos. Las generadas conservan el fragmento fuente y se marcan como `draft` hasta su revisión manual.
 
 ## Desarrollo
 

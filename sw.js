@@ -1,5 +1,5 @@
 // Service worker: app-shell offline. Sube CACHE al desplegar cambios.
-const CACHE = 'quizadif-v4';
+const CACHE = 'quizadif-v5';
 const SHELL = [
   './', './index.html', './manifest.webmanifest',
   './js/app.js', './js/db.js', './js/model.js', './js/quiz.js', './js/ui.js', './js/views.js',
